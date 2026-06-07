@@ -3944,6 +3944,8 @@ export default function Home() {
             </div>
 
           </div>
+
+        </div>
         )}
 
         {/* TAB 2: MY ORDERS & 2FA MANAGEMENT */}
