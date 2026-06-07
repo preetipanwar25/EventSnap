@@ -1071,9 +1071,56 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"catalog" | "my-tickets" | "admin" | "saga" | "venues" | "organizer">("catalog");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(initialEvents[0]);
   const [bookingMode, setBookingMode] = useState<"TICKET" | "BOOTH">("BOOTH");
-  // Event Detail Page overlay
+  // Event Detail Page
   const [showEventDetailPage, setShowEventDetailPage] = useState(false);
   const [detailPageEvent, setDetailPageEvent] = useState<Event | null>(null);
+  // Marketing video: { [eventId]: objectURL }
+  const [eventVideos, setEventVideos] = useState<Record<string, string>>({});
+  const [videoUploadProgress, setVideoUploadProgress] = useState<number | null>(null);
+  const [videoUploadName, setVideoUploadName]   = useState<string>("");
+  const [videoUploadSize, setVideoUploadSize]   = useState<string>("");
+  const [videoUploadError, setVideoUploadError] = useState<string>("");
+
+  const handleVideoUpload = (file: File) => {
+    const maxMb = 200;
+    if (!file.type.startsWith("video/")) {
+      setVideoUploadError("Please upload a valid video file (MP4, MOV, WebM…)");
+      return;
+    }
+    if (file.size > maxMb * 1024 * 1024) {
+      setVideoUploadError(`File too large. Max ${maxMb} MB allowed.`);
+      return;
+    }
+    setVideoUploadError("");
+    setVideoUploadName(file.name);
+    setVideoUploadSize((file.size / (1024 * 1024)).toFixed(1) + " MB");
+    // Simulate upload progress
+    setVideoUploadProgress(0);
+    let pct = 0;
+    const interval = setInterval(() => {
+      pct += Math.random() * 18 + 6;
+      if (pct >= 100) {
+        pct = 100;
+        clearInterval(interval);
+        const url = URL.createObjectURL(file);
+        setEventVideos(prev => ({ ...prev, [detailPageEvent!.id]: url }));
+        setVideoUploadProgress(null);
+      } else {
+        setVideoUploadProgress(Math.round(pct));
+      }
+    }, 120);
+  };
+
+  const handleRemoveVideo = (eventId: string) => {
+    setEventVideos(prev => {
+      const copy = { ...prev };
+      if (copy[eventId]) URL.revokeObjectURL(copy[eventId]);
+      delete copy[eventId];
+      return copy;
+    });
+    setVideoUploadName("");
+    setVideoUploadSize("");
+  };
 
   // Organizer Profile State
   const [organizerProfiles, setOrganizerProfiles] = useState<OrganizerProfile[]>(() => {
@@ -6994,6 +7041,130 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            {/* ── MARKETING VIDEO SECTION ── */}
+            {(() => {
+              const videoUrl = eventVideos[detailPageEvent.id];
+              return (
+                <div className="mb-8 glass rounded-3xl border border-violet-500/20 overflow-hidden relative shadow-xl shadow-violet-500/5">
+                  {/* Glow */}
+                  <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 bg-violet-500/10 rounded-full blur-3xl" />
+                  <div className="pointer-events-none absolute -bottom-12 -left-12 w-40 h-40 bg-fuchsia-500/10 rounded-full blur-2xl" />
+
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-violet-500/15">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 bg-violet-500/10 border border-violet-500/20 rounded-lg">
+                        <Layers className="w-4 h-4 text-violet-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-[var(--text-primary)]">Marketing Video</h3>
+                        <p className="text-[10px] text-[var(--text-secondary)]">Upload a promotional video for this event</p>
+                      </div>
+                    </div>
+                    {videoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVideo(detailPageEvent.id)}
+                        className="flex items-center gap-1.5 text-[10px] text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 px-2.5 py-1 rounded-lg transition-all"
+                      >
+                        <Trash2 className="w-3 h-3" /> Remove Video
+                      </button>
+                    )}
+                  </div>
+
+                  {videoUrl ? (
+                    /* ── VIDEO PLAYER ── */
+                    <div className="relative bg-black">
+                      <video
+                        src={videoUrl}
+                        controls
+                        className="w-full max-h-[480px] object-contain"
+                        style={{ background: "#000" }}
+                      />
+                      <div className="px-5 py-3 flex items-center gap-3 bg-[var(--glass-bg)]">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-[11px] text-[var(--text-secondary)] font-mono truncate">{videoUploadName}</span>
+                        <span className="ml-auto text-[10px] text-[var(--text-secondary)] font-mono shrink-0">{videoUploadSize}</span>
+                      </div>
+                    </div>
+                  ) : videoUploadProgress !== null ? (
+                    /* ── UPLOAD PROGRESS ── */
+                    <div className="px-6 py-8 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                          <RefreshCw className="w-4 h-4 text-violet-400 animate-spin" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-[var(--text-primary)] truncate">{videoUploadName}</p>
+                          <p className="text-[10px] text-[var(--text-secondary)]">{videoUploadSize} · Uploading…</p>
+                        </div>
+                        <span className="text-sm font-bold font-mono text-violet-400 shrink-0">{videoUploadProgress}%</span>
+                      </div>
+                      {/* Progress bar */}
+                      <div className="w-full h-2 bg-[var(--glass-border)] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-150"
+                          style={{ width: `${videoUploadProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-center text-[var(--text-secondary)] font-mono">Processing video · please wait…</p>
+                    </div>
+                  ) : (
+                    /* ── DROP ZONE ── */
+                    <label
+                      htmlFor={`video-upload-${detailPageEvent.id}`}
+                      className="group flex flex-col items-center justify-center gap-4 px-6 py-10 cursor-pointer relative hover:bg-violet-500/5 transition-all"
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => {
+                        e.preventDefault();
+                        const file = e.dataTransfer.files[0];
+                        if (file) handleVideoUpload(file);
+                      }}
+                    >
+                      <input
+                        id={`video-upload-${detailPageEvent.id}`}
+                        type="file"
+                        accept="video/*"
+                        className="hidden"
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) handleVideoUpload(file);
+                          e.target.value = "";
+                        }}
+                      />
+                      {/* Animated icon */}
+                      <div className="relative">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-violet-500/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-violet-500/10">
+                          <Zap className="w-8 h-8 text-violet-400 group-hover:text-violet-300 transition-colors" />
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-[var(--bg-primary)] flex items-center justify-center">
+                          <Plus className="w-3 h-3 text-white" />
+                        </div>
+                      </div>
+                      <div className="text-center space-y-1">
+                        <p className="text-sm font-bold text-[var(--text-primary)] group-hover:text-violet-300 transition-colors">
+                          Drop your marketing video here
+                        </p>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                          or <span className="text-violet-400 underline underline-offset-2">click to browse</span> — MP4, MOV, WebM · Max 200 MB
+                        </p>
+                      </div>
+                      {videoUploadError && (
+                        <p className="flex items-center gap-1.5 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-2 rounded-xl">
+                          <X className="w-3.5 h-3.5 shrink-0" /> {videoUploadError}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-4 text-[10px] text-[var(--text-secondary)] font-mono mt-1">
+                        <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-sky-400" /> Secure upload</span>
+                        <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-amber-400" /> Instant preview</span>
+                        <span className="flex items-center gap-1"><Check className="w-3 h-3 text-emerald-400" /> MP4 / MOV / WebM</span>
+                      </div>
+                    </label>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ── TWO-COLUMN BODY ── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
