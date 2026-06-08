@@ -1470,6 +1470,10 @@ export default function Home() {
 
   // Admin selected venue for event creation
   const [adminSelectedVenueId, setAdminSelectedVenueId] = useState<string>("none");
+  const [showVenueCalFlyout, setShowVenueCalFlyout] = useState(false);
+  const [venueCalFlyoutMonth, setVenueCalFlyoutMonth] = useState(5); // June 2026 default
+  const [venueCalFlyoutYear, setVenueCalFlyoutYear] = useState(2026);
+
 
   // Synchronize Venues to localStorage
   useEffect(() => {
@@ -4842,7 +4846,30 @@ export default function Home() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <label className="text-xs text-[var(--text-secondary)] font-bold">Select Available Venue</label>
+                          <div className="flex justify-between items-center">
+                            <label className="text-xs text-[var(--text-secondary)] font-bold">Select Available Venue</label>
+                            {adminSelectedVenueId !== "none" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  // Open flyout and sync date variables to whatever event date is set or default to June 2026
+                                  if (newEventDate) {
+                                    try {
+                                      const d = new Date(newEventDate);
+                                      if (!isNaN(d.getTime())) {
+                                        setVenueCalFlyoutMonth(d.getMonth());
+                                        setVenueCalFlyoutYear(d.getFullYear());
+                                      }
+                                    } catch (err) {}
+                                  }
+                                  setShowVenueCalFlyout(true);
+                                }}
+                                className="text-[10px] text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 transition"
+                              >
+                                <Calendar className="w-3 h-3" /> View Availability
+                              </button>
+                            )}
+                          </div>
                           <select
                             value={adminSelectedVenueId}
                             onChange={(e) => {
@@ -6431,7 +6458,29 @@ export default function Home() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-xs text-[var(--text-secondary)] font-bold block">Allocate Venue Property</label>
+                        <div className="flex justify-between items-center">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold block">Allocate Venue Property</label>
+                          {adminSelectedVenueId !== "none" && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (newEventDate) {
+                                  try {
+                                    const d = new Date(newEventDate);
+                                    if (!isNaN(d.getTime())) {
+                                      setVenueCalFlyoutMonth(d.getMonth());
+                                      setVenueCalFlyoutYear(d.getFullYear());
+                                    }
+                                  } catch (err) {}
+                                }
+                                setShowVenueCalFlyout(true);
+                              }}
+                              className="text-[10px] text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 transition"
+                            >
+                              <Calendar className="w-3 h-3" /> View Availability
+                            </button>
+                          )}
+                        </div>
                         <select
                           value={adminSelectedVenueId}
                           onChange={(e) => {
@@ -9361,6 +9410,215 @@ export default function Home() {
           </div>
         </div>
       )}
+      {/* ==================== VENUE AVAILABILITY CALENDAR FLYOUT ==================== */}
+      {showVenueCalFlyout && (() => {
+        const selectedVenueObj = venues.find(v => v.id === adminSelectedVenueId);
+        if (!selectedVenueObj) return null;
+
+        const monthNames = [
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"
+        ];
+        
+        const firstDayOfMonth = new Date(venueCalFlyoutYear, venueCalFlyoutMonth, 1).getDay();
+        const daysInMonth = new Date(venueCalFlyoutYear, venueCalFlyoutMonth + 1, 0).getDate();
+        
+        const days = [];
+        for (let i = 0; i < firstDayOfMonth; i++) {
+          days.push(null);
+        }
+        for (let i = 1; i <= daysInMonth; i++) {
+          days.push(i);
+        }
+
+        const handlePrevMonth = () => {
+          if (venueCalFlyoutMonth === 0) {
+            setVenueCalFlyoutMonth(11);
+            setVenueCalFlyoutYear(prev => prev - 1);
+          } else {
+            setVenueCalFlyoutMonth(prev => prev - 1);
+          }
+        };
+
+        const handleNextMonth = () => {
+          if (venueCalFlyoutMonth === 11) {
+            setVenueCalFlyoutMonth(0);
+            setVenueCalFlyoutYear(prev => prev + 1);
+          } else {
+            setVenueCalFlyoutMonth(prev => prev + 1);
+          }
+        };
+
+        return (
+          <div className="fixed inset-0 z-[100] flex justify-end font-sans">
+            <div 
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+              onClick={() => setShowVenueCalFlyout(false)}
+            />
+
+            <div className="relative w-full max-w-md h-full bg-[#0a0516]/95 border-l border-[var(--glass-border)] shadow-2xl p-6 flex flex-col justify-between overflow-y-auto animate-slide-in">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-[var(--glass-border)] pb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-sky-400" />
+                      Venue Availability
+                    </h3>
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5 font-mono">{selectedVenueObj.name}</p>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowVenueCalFlyout(false)}
+                    className="p-1.5 rounded-lg bg-[var(--glass-border)] hover:bg-red-500/20 hover:text-red-400 text-[var(--text-secondary)] transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="glass rounded-xl border border-[var(--glass-border)] p-4 flex gap-3 items-center">
+                  <img 
+                    src={selectedVenueObj.imageUrl || "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=400&q=80"} 
+                    alt={selectedVenueObj.name}
+                    className="w-16 h-16 rounded-lg object-cover border border-[var(--glass-border)]"
+                  />
+                  <div>
+                    <h4 className="text-xs font-bold text-[var(--text-primary)]">{selectedVenueObj.name}</h4>
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 flex items-center gap-0.5">
+                      <MapPin className="w-3 h-3 text-sky-400" /> {selectedVenueObj.location}
+                    </p>
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
+                      Max Capacity: <span className="text-emerald-400 font-bold">{selectedVenueObj.capacity} guests</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <button 
+                    type="button" 
+                    onClick={handlePrevMonth}
+                    className="p-1.5 rounded-lg border border-[var(--glass-border)] hover:border-sky-500/50 hover:bg-sky-500/10 text-[var(--text-primary)] transition"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm font-bold text-[var(--text-primary)] font-outfit uppercase tracking-wider">
+                    {monthNames[venueCalFlyoutMonth]} {venueCalFlyoutYear}
+                  </span>
+                  <button 
+                    type="button" 
+                    onClick={handleNextMonth}
+                    className="p-1.5 rounded-lg border border-[var(--glass-border)] hover:border-sky-500/50 hover:bg-sky-500/10 text-[var(--text-primary)] transition"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="grid grid-cols-7 text-center text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                    <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {days.map((day, idx) => {
+                      if (day === null) {
+                        return <div key={`empty-${idx}`} className="h-10" />;
+                      }
+
+                      const y = venueCalFlyoutYear;
+                      const mStr = String(venueCalFlyoutMonth + 1).padStart(2, "0");
+                      const dStr = String(day).padStart(2, "0");
+                      const dateString = `${y}-${mStr}-${dStr}`;
+
+                      const isAvailable = selectedVenueObj.availableDates.includes(dateString);
+                      const booking = venueBookings.find(b => b.venueId === selectedVenueObj.id && b.date === dateString && b.status === "CONFIRMED");
+                      const isBooked = !!booking;
+                      const isSelected = newEventDate === dateString;
+
+                      let cellClass = "h-10 rounded-lg flex flex-col items-center justify-center text-xs font-semibold font-mono relative transition ";
+                      let pillDot = null;
+                      let tooltip = "Unavailable";
+
+                      if (isSelected) {
+                        cellClass += "bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-fuchsia-500/20 scale-105 border border-fuchsia-400/30 cursor-pointer";
+                        tooltip = "Selected Event Date";
+                      } else if (isBooked) {
+                        cellClass += "bg-rose-500/5 border border-rose-500/10 text-rose-500/40 line-through cursor-not-allowed";
+                        tooltip = `Booked: ${booking.eventTitle}`;
+                      } else if (isAvailable) {
+                        cellClass += "bg-emerald-500/5 hover:bg-emerald-500/15 border border-emerald-500/10 hover:border-emerald-500/40 text-emerald-400 cursor-pointer";
+                        pillDot = <span className="absolute bottom-1 w-1 h-1 rounded-full bg-emerald-400" />;
+                        tooltip = "Available for Allocation";
+                      } else {
+                        cellClass += "text-[var(--text-secondary)]/30 hover:bg-[var(--glass-border)]/10 cursor-not-allowed";
+                      }
+
+                      return (
+                        <button
+                          key={`day-${day}`}
+                          type="button"
+                          disabled={isBooked || (!isAvailable && !isSelected)}
+                          onClick={() => {
+                            setNewEventDate(dateString);
+                            setShowVenueCalFlyout(false);
+                          }}
+                          className={cellClass}
+                          title={tooltip}
+                        >
+                          <span>{day}</span>
+                          {pillDot}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl space-y-2 text-[10px]">
+                  <span className="font-bold text-[var(--text-primary)] uppercase tracking-wider block font-mono">Legend</span>
+                  <div className="grid grid-cols-2 gap-2 text-[var(--text-secondary)]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded bg-emerald-500/20 border border-emerald-500/30 inline-block" />
+                      <span>Available date</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded bg-rose-500/20 border border-rose-500/30 inline-block" />
+                      <span>Booked date</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded bg-gradient-to-br from-violet-600 to-fuchsia-600 inline-block" />
+                      <span>Selected date</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded border border-dashed border-[var(--glass-border)] inline-block" />
+                      <span>Not operational</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 border-t border-[var(--glass-border)] pt-4 space-y-3">
+                <h4 className="text-xs font-bold text-[var(--text-primary)] font-outfit uppercase tracking-wider flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-sky-400" /> Upcoming Schedule &amp; Bookings
+                </h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {(() => {
+                    const activeBookings = venueBookings.filter(b => b.venueId === selectedVenueObj.id && b.status === "CONFIRMED");
+                    if (activeBookings.length === 0) {
+                      return <p className="text-[10px] text-[var(--text-secondary)] italic">No upcoming events scheduled at this venue.</p>;
+                    }
+                    return activeBookings.map(b => (
+                      <div key={b.id} className="flex justify-between items-center p-2 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg)] text-[10px]">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-[var(--text-primary)] truncate">{b.eventTitle}</p>
+                          <p className="text-[9px] text-[var(--text-secondary)] font-mono">{b.date}</p>
+                        </div>
+                        <span className="shrink-0 text-[8px] bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded font-extrabold uppercase">Booked</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {/* =============================================================== */}
 
     </div>
