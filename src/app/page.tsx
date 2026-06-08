@@ -373,6 +373,7 @@ const initialEvents: Event[] = [
     latitude: 37.7726,
     longitude: -122.4098,
     isSponsored: true,
+    organizerId: "org-sarah",
     sponsorPackages: [
       { id: "sp-gold-evt-1", name: "Gold Corporate Sponsor", price: 5000, benefits: ["Logo on Stage Banner", "Premium Exhibition Booth", "10 VIP Tickets"] },
       { id: "sp-silver-evt-1", name: "Silver Corporate Sponsor", price: 2500, benefits: ["Logo on Catalog Page", "Standard Exhibition Booth", "5 General Tickets"] }
@@ -395,7 +396,8 @@ const initialEvents: Event[] = [
     state: "CO",
     zipcode: "80465",
     latitude: 39.6536,
-    longitude: -105.1911
+    longitude: -105.1911,
+    organizerId: "org-sarah"
   },
   {
     id: "evt-3",
@@ -415,7 +417,8 @@ const initialEvents: Event[] = [
     zipcode: "94573",
     latitude: 38.4582,
     longitude: -122.4228,
-    isSponsored: true
+    isSponsored: true,
+    organizerId: "org-sarah"
   }
 ];
 
@@ -3302,8 +3305,29 @@ export default function Home() {
                   setActiveTab("catalog");
                 } else if (selected === "ORGANIZER") {
                   setActiveTab("organizer");
+                  if (!activeOrganizerProfile || activeOrganizerProfile.id !== "org-sarah") {
+                    setActiveOrganizerProfile({
+                      id: "org-sarah",
+                      organizationName: "Sarah Connor Events",
+                      contactName: "Sarah Connor",
+                      email: "sarah@sfvenues.com",
+                      phone: "+1 555-9011",
+                      status: "VERIFIED"
+                    });
+                  }
                 } else if (selected === "VENDOR") {
                   setActiveTab("vendor");
+                  if (!activeVendorProfile || activeVendorProfile.id !== "vnd-luigi") {
+                    setActiveVendorProfile({
+                      id: "vnd-luigi",
+                      businessName: "Luigi's Woodfired Pizza",
+                      ownerName: "Luigi Rossini",
+                      email: "luigi@woodfiredpizza.it",
+                      phone: "+1 555-8833",
+                      category: "Italian",
+                      status: "VERIFIED"
+                    });
+                  }
                 } else if (selected === "SPONSOR") {
                   setActiveTab("sponsor");
                 } else if (selected === "ADMIN") {
@@ -4118,6 +4142,17 @@ export default function Home() {
                         onClick={() => {
                           setCurrentUserRole("VENDOR");
                           setActiveTab("vendor");
+                          if (!activeVendorProfile || activeVendorProfile.id !== "vnd-luigi") {
+                            setActiveVendorProfile({
+                              id: "vnd-luigi",
+                              businessName: "Luigi's Woodfired Pizza",
+                              ownerName: "Luigi Rossini",
+                              email: "luigi@woodfiredpizza.it",
+                              phone: "+1 555-8833",
+                              category: "Italian",
+                              status: "VERIFIED"
+                            });
+                          }
                           addSagaLog("Auth-Service", `Mock login: Switched role to [VENDOR] via Book Booth action.`, "info");
                         }}
                         className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold py-2.5 rounded-xl shadow shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
@@ -4131,6 +4166,16 @@ export default function Home() {
                         onClick={() => {
                           setCurrentUserRole("ORGANIZER");
                           setActiveTab("venues");
+                          if (!activeOrganizerProfile || activeOrganizerProfile.id !== "org-sarah") {
+                            setActiveOrganizerProfile({
+                              id: "org-sarah",
+                              organizationName: "Sarah Connor Events",
+                              contactName: "Sarah Connor",
+                              email: "sarah@sfvenues.com",
+                              phone: "+1 555-9011",
+                              status: "VERIFIED"
+                            });
+                          }
                           addSagaLog("Auth-Service", `Mock login: Switched role to [ORGANIZER] via Book Venue action.`, "info");
                         }}
                         className="w-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-2.5 rounded-xl shadow shadow-sky-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
@@ -5923,8 +5968,171 @@ export default function Home() {
         )}
 
         {/* TAB 6: EVENT ORGANIZERS MANAGEMENT */}
+        {/* TAB 6: EVENT ORGANIZERS MANAGEMENT */}
         {activeTab === "organizer" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          <div className="space-y-8 animate-[fadeIn_0.3s_ease-out]">
+            {activeOrganizerProfile && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-sky-400" />
+                  My Listings ({events.filter(e => e.organizerId === activeOrganizerProfile.id).length})
+                </h3>
+
+                <div className="overflow-x-auto rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] max-h-[480px] overflow-y-auto">
+                  {events.filter(e => e.organizerId === activeOrganizerProfile.id).length === 0 ? (
+                    <div className="text-center text-xs text-[var(--text-secondary)] py-12">
+                      No organized events listed yet. Use the form on the left to publish your first event.
+                    </div>
+                  ) : (
+                    <table className="w-full text-left border-collapse min-w-[800px]">
+                      <thead>
+                        <tr className="border-b border-[var(--glass-border)] bg-slate-900/40 text-[10px] font-mono text-[var(--text-secondary)] uppercase tracking-wider sticky top-0 backdrop-blur-md z-10">
+                          <th className="py-3 px-4 font-bold">Event Details</th>
+                          <th className="py-3 px-4 font-bold">Category</th>
+                          <th className="py-3 px-4 font-bold">Date & Venue</th>
+                          <th className="py-3 px-4 font-bold text-right">Price</th>
+                          <th className="py-3 px-4 font-bold">Tickets & Booths</th>
+                          <th className="py-3 px-4 font-bold">Status</th>
+                          <th className="py-3 px-4 font-bold text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--glass-border)] text-xs">
+                        {events.filter(e => e.organizerId === activeOrganizerProfile.id).map(ev => {
+                          const eventBooths = booths.filter(b => b.eventId === ev.id);
+                          return (
+                            <tr key={ev.id} className="hover:bg-slate-800/20 transition-colors">
+                              <td className="py-3 px-4 align-middle">
+                                <div className="flex flex-col gap-1">
+                                  <span className="font-bold text-[var(--text-primary)] text-sm">{ev.title}</span>
+                                  {ev.isSponsored && (
+                                    <div className="flex">
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold rounded">
+                                        <Star className="w-2.5 h-2.5 fill-current" /> SPONSORED
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 align-middle">
+                                <span className="px-2 py-0.5 rounded bg-slate-800/60 border border-[var(--glass-border)] text-[var(--text-secondary)] text-[10px]">
+                                  {ev.category}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 align-middle">
+                                <div className="space-y-0.5">
+                                  <div className="font-semibold text-[var(--text-primary)]">{ev.date}</div>
+                                  <div className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1">
+                                    <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                    <span className="truncate max-w-[200px]" title={ev.venueId ? venues.find(v => v.id === ev.venueId)?.name : ev.location}>
+                                      {ev.venueId ? venues.find(v => v.id === ev.venueId)?.name : "Manual"} ({ev.location})
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 align-middle text-right font-mono font-bold text-sky-400">
+                                ${ev.price}
+                              </td>
+                              <td className="py-3 px-4 align-middle">
+                                <div className="space-y-1 text-[11px]">
+                                  <div>
+                                    Tickets: <span className="font-mono font-bold text-[var(--text-primary)]">{ev.ticketsSold}</span>
+                                    <span className="text-[var(--text-secondary)]"> / {ev.ticketInventory}</span>
+                                  </div>
+                                  <div>
+                                    Booths: <span className="font-mono font-bold text-[var(--text-primary)]">{eventBooths.length}</span>
+                                    <span className="text-[var(--text-secondary)]"> allocated</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 align-middle">
+                                <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border ${
+                                  ev.moderationStatus === "APPROVED" || ev.moderationStatus === undefined
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+                                    : ev.moderationStatus === "PENDING"
+                                      ? "bg-amber-500/10 text-amber-400 border-amber-500/25"
+                                      : "bg-rose-500/10 text-rose-400 border-rose-500/25"
+                                }`}>
+                                  {ev.moderationStatus || "APPROVED"}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 align-middle text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDuplicateEvent(ev.id)}
+                                    className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 text-[10px] py-1 px-2.5 rounded-lg font-semibold transition"
+                                  >
+                                    Duplicate
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOrgEditingEventId(ev.id);
+                                      setNewEventTitle(ev.title);
+                                      setNewEventDesc(ev.description || "");
+                                      setNewEventLoc(ev.location);
+                                      setNewEventDate(ev.date);
+                                      setNewEventPrice(ev.price.toString());
+                                      setNewEventInventory(ev.ticketInventory.toString());
+                                      setAdminSelectedVenueId(ev.venueId || "none");
+                                      setNewEventCity(ev.city || "");
+                                      setNewEventState(ev.state || "");
+                                      setNewEventZipcode(ev.zipcode || "");
+                                      setNewEventLat(ev.latitude ? ev.latitude.toString() : "");
+                                      setNewEventLng(ev.longitude ? ev.longitude.toString() : "");
+                                      setNewEventIsSponsored(!!ev.isSponsored);
+                                      setOrgEventSponsorPackages(ev.sponsorPackages || []);
+                                      
+                                      if (ev.ticketClasses && ev.ticketClasses.length > 0) {
+                                        setEnableTiers(true);
+                                        const eb = ev.ticketClasses.find(tc => tc.name === "Early Bird");
+                                        const ga = ev.ticketClasses.find(tc => tc.name === "General Admission");
+                                        const vip = ev.ticketClasses.find(tc => tc.name === "VIP");
+                                        setEbPrice(eb ? eb.price.toString() : "");
+                                        setEbInv(eb ? eb.inventory.toString() : "");
+                                        setGaPriceForm(ga ? ga.price.toString() : "");
+                                        setGaInvForm(ga ? ga.inventory.toString() : "");
+                                        setVipPriceForm(vip ? vip.price.toString() : "");
+                                        setVipInvForm(vip ? vip.inventory.toString() : "");
+                                      } else {
+                                        setEnableTiers(false);
+                                        setEbPrice("");
+                                        setEbInv("");
+                                        setGaPriceForm("");
+                                        setGaInvForm("");
+                                        setVipPriceForm("");
+                                        setVipInvForm("");
+                                      }
+
+                                      const linkedVendors = eventBooths
+                                        .map(b => vendorProfiles.find(v => v.businessName === b.vendorBusinessName)?.id)
+                                        .filter((id): id is string => !!id);
+                                      setOrgSelectedVendorIds(linkedVendors);
+                                    }}
+                                    className="bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-sky-400 text-[10px] py-1 px-2.5 rounded-lg font-semibold transition"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteEvent(ev.id)}
+                                    className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 p-1.5 rounded-lg transition"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
             
             {/* Left Column: Event Onboarding or Event Creator / Editor Form */}
             <div className="lg:col-span-2 space-y-6">
@@ -6750,126 +6958,7 @@ export default function Home() {
                     );
                   })()}
 
-                  {/* My Organized Events Directory */}
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider flex items-center gap-1.5">
-                      <Layers className="w-4 h-4 text-sky-400" />
-                      My Listings ({events.filter(e => e.organizerId === activeOrganizerProfile.id).length})
-                    </h3>
-
-                    <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                      {events.filter(e => e.organizerId === activeOrganizerProfile.id).length === 0 ? (
-                        <div className="text-center text-xs text-[var(--text-secondary)] py-12 border border-dashed border-[var(--glass-border)] rounded-2xl bg-[var(--glass-bg)]">
-                          No organized events listed yet. Use the form on the left to publish your first event.
-                        </div>
-                      ) : (
-                        events.filter(e => e.organizerId === activeOrganizerProfile.id).map(ev => {
-                          const eventBooths = booths.filter(b => b.eventId === ev.id);
-                          return (
-                            <div key={ev.id} className="glass rounded-xl border border-[var(--glass-border)] p-4 space-y-3 relative overflow-hidden">
-                              <div className="flex justify-between items-start gap-2">
-                                <div>
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <h5 className="font-bold text-sm text-[var(--text-primary)]">{ev.title}</h5>
-                                    {ev.isSponsored && (
-                                      <span className="text-amber-400 text-xs" title="Sponsored Event">★</span>
-                                    )}
-                                    <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${
-                                      ev.moderationStatus === "APPROVED" || ev.moderationStatus === undefined
-                                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
-                                        : ev.moderationStatus === "PENDING"
-                                          ? "bg-amber-500/10 text-amber-400 border-amber-500/25"
-                                          : "bg-rose-500/10 text-rose-400 border-rose-500/25"
-                                    }`}>
-                                      {ev.moderationStatus || "APPROVED"}
-                                    </span>
-                                  </div>
-                                  <div className="text-[10px] text-[var(--text-secondary)] font-mono mt-1 flex gap-2.5">
-                                    <span>Date: {ev.date}</span>
-                                    <span>•</span>
-                                    <span>Venue: {ev.venueId ? venues.find(v => v.id === ev.venueId)?.name : "Manual"}</span>
-                                  </div>
-                                </div>
-                                <span className="font-mono text-xs font-bold text-sky-400">${ev.price}</span>
-                              </div>
-
-                              <div className="flex justify-between items-center text-[10px] bg-[var(--input-bg)] p-2 rounded-lg border border-[var(--input-border)]">
-                                <span className="text-[var(--text-secondary)]">Tickets Sold: <strong>{ev.ticketsSold} / {ev.ticketInventory}</strong></span>
-                                <span className="text-[var(--text-secondary)]">Vendor Booths: <strong>{eventBooths.length} allocated</strong></span>
-                              </div>
-
-                              <div className="flex justify-end gap-2 pt-1 flex-wrap">
-                                <button
-                                  type="button"
-                                  onClick={() => handleDuplicateEvent(ev.id)}
-                                  className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 text-[9px] py-1 px-2.5 rounded-lg font-semibold transition"
-                                >
-                                  Duplicate
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOrgEditingEventId(ev.id);
-                                    setNewEventTitle(ev.title);
-                                    setNewEventDesc(ev.description || "");
-                                    setNewEventLoc(ev.location);
-                                    setNewEventDate(ev.date);
-                                    setNewEventPrice(ev.price.toString());
-                                    setNewEventInventory(ev.ticketInventory.toString());
-                                    setAdminSelectedVenueId(ev.venueId || "none");
-                                    setNewEventCity(ev.city || "");
-                                    setNewEventState(ev.state || "");
-                                    setNewEventZipcode(ev.zipcode || "");
-                                    setNewEventLat(ev.latitude ? ev.latitude.toString() : "");
-                                    setNewEventLng(ev.longitude ? ev.longitude.toString() : "");
-                                    setNewEventIsSponsored(!!ev.isSponsored);
-                                    setOrgEventSponsorPackages(ev.sponsorPackages || []);
-                                    
-                                    if (ev.ticketClasses && ev.ticketClasses.length > 0) {
-                                      setEnableTiers(true);
-                                      const eb = ev.ticketClasses.find(tc => tc.name === "Early Bird");
-                                      const ga = ev.ticketClasses.find(tc => tc.name === "General Admission");
-                                      const vip = ev.ticketClasses.find(tc => tc.name === "VIP");
-                                      setEbPrice(eb ? eb.price.toString() : "");
-                                      setEbInv(eb ? eb.inventory.toString() : "");
-                                      setGaPriceForm(ga ? ga.price.toString() : "");
-                                      setGaInvForm(ga ? ga.inventory.toString() : "");
-                                      setVipPriceForm(vip ? vip.price.toString() : "");
-                                      setVipInvForm(vip ? vip.inventory.toString() : "");
-                                    } else {
-                                      setEnableTiers(false);
-                                      setEbPrice("");
-                                      setEbInv("");
-                                      setGaPriceForm("");
-                                      setGaInvForm("");
-                                      setVipPriceForm("");
-                                      setVipInvForm("");
-                                    }
-
-                                    const linkedVendors = eventBooths
-                                      .map(b => vendorProfiles.find(v => v.businessName === b.vendorBusinessName)?.id)
-                                      .filter((id): id is string => !!id);
-                                    setOrgSelectedVendorIds(linkedVendors);
-                                  }}
-                                  className="bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-sky-400 text-[9px] py-1 px-2.5 rounded-lg font-semibold transition"
-                                >
-                                  Edit details
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteEvent(ev.id)}
-                                  className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-[9px] py-1 px-2 rounded-lg transition"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-
+                  {/* My Organized Events Directory block removed from here */}
                 </div>
               ) : (
                 <div className="glass rounded-2xl border border-[var(--glass-border)] p-12 text-center text-[var(--text-secondary)]">
@@ -6877,9 +6966,9 @@ export default function Home() {
                 </div>
               )}
             </div>
-
           </div>
-        )}
+        </div>
+      )}
 
         {/* TAB 7: VENDOR PORTAL */}
         {activeTab === "vendor" && (
@@ -8703,6 +8792,10 @@ export default function Home() {
             {/* ── MARKETING VIDEO SECTION ── */}
             {(() => {
               const videoUrl = eventVideos[detailPageEvent.id];
+              const isAuthorized = currentUserRole === "ADMIN" || currentUserRole === "ORGANIZER";
+              
+              if (!videoUrl && !isAuthorized) return null;
+
               return (
                 <div className="mb-8 glass rounded-3xl border border-violet-500/20 overflow-hidden relative shadow-xl shadow-violet-500/5">
                   {/* Glow */}
@@ -8717,10 +8810,12 @@ export default function Home() {
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-[var(--text-primary)]">Marketing Video</h3>
-                        <p className="text-[10px] text-[var(--text-secondary)]">Upload a promotional video for this event</p>
+                        <p className="text-[10px] text-[var(--text-secondary)]">
+                          {isAuthorized ? "Upload a promotional video for this event" : "Promotional event highlight video"}
+                        </p>
                       </div>
                     </div>
-                    {videoUrl && (
+                    {videoUrl && isAuthorized && (
                       <button
                         type="button"
                         onClick={() => handleRemoveVideo(detailPageEvent.id)}
