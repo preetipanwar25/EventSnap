@@ -37,10 +37,78 @@ import {
   Trash2,
   Edit2,
   ArrowLeft,
-  Star
+  Star,
+  Settings
 } from "lucide-react";
 
 // Types definition
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: "ATTENDEE" | "ORGANIZER" | "VENDOR" | "SPONSOR" | "ADMIN";
+  status: "ACTIVE" | "SUSPENDED";
+}
+
+interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+}
+
+interface BoothApplication {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  boothId: string;
+  boothName: string;
+  vendorId: string;
+  vendorName: string;
+  category: string;
+  price: number;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  paymentTerms: "FULL" | "DEPOSIT";
+  amountPaid: number;
+  documents: string[];
+  timestamp: string;
+}
+
+interface SponsorApplication {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  packageId: string;
+  packageName: string;
+  packagePrice: number;
+  sponsorId: string;
+  companyName: string;
+  logoUrl: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  timestamp: string;
+  deliverables: { name: string; completed: boolean }[];
+}
+
+interface VendorLead {
+  id: string;
+  vendorId: string;
+  eventId: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  timestamp: string;
+}
+
+interface VendorSale {
+  id: string;
+  vendorId: string;
+  eventId: string;
+  productName: string;
+  amount: number;
+  timestamp: string;
+}
+
 interface SponsorPackage {
   id: string;
   name: string;
@@ -84,6 +152,8 @@ interface Event {
   isSponsored?: boolean;
   organizerId?: string;
   sponsorPackages?: SponsorPackage[];
+  moderationStatus?: "PENDING" | "APPROVED" | "REJECTED";
+  ticketClasses?: { name: string; price: number; inventory: number; sold: number }[];
 }
 
 interface Review {
@@ -164,13 +234,14 @@ interface Order {
   timestamp: string;
   paymentGateway: "Stripe" | "PayPal";
   idempotencyKey: string;
-  type: "TICKET" | "BOOTH";
+  type: "TICKET" | "BOOTH" | "SPONSOR";
   boothId?: string;
   boothName?: string;
   vendorBusinessName?: string;
   paymentTerms?: "FULL" | "DEPOSIT";
   amountPaid?: number;
   remainingBalance?: number;
+  ticketClass?: string;
 }
 
 interface Booth {
@@ -837,6 +908,7 @@ const getDistanceInMiles = (lat1: number, lon1: number, lat2: number, lon2: numb
 export default function Home() {
   // Theme State
   const [theme, setTheme] = useState<"dark" | "light" | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Synchronize Theme
   useEffect(() => {
@@ -861,6 +933,15 @@ export default function Home() {
   const toggleTheme = () => {
     setTheme(prev => (prev === "dark" ? "light" : "dark"));
   };
+
+  // OTP Verification Requirement (configurable, off by default)
+  const [otpVerificationEnabled, setOtpVerificationEnabled] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("otpVerificationEnabled");
+      return stored === "true";
+    }
+    return false;
+  });
 
   // Application State
   const [events, setEvents] = useState<Event[]>(initialEvents);
@@ -962,13 +1043,13 @@ export default function Home() {
         setReviewOtpError("Name and Email are required.");
         return;
       }
-      if (reviewVerificationStep === "form") {
+      if (otpVerificationEnabled && reviewVerificationStep === "form") {
         setReviewVerificationStep("otp");
         return;
       }
     }
 
-    if (!isVendor && !isVenueProvider && reviewVerificationStep === "otp") {
+    if (otpVerificationEnabled && !isVendor && !isVenueProvider && reviewVerificationStep === "otp") {
       if (reviewOtpInput !== "123456") {
         setReviewOtpError("Invalid verification code. Please use 123456.");
         return;
@@ -1068,9 +1149,140 @@ export default function Home() {
   };
   
   // Navigation & Tab state
-  const [activeTab, setActiveTab] = useState<"catalog" | "my-tickets" | "admin" | "saga" | "venues" | "organizer">("catalog");
+  const [activeTab, setActiveTab] = useState<"catalog" | "my-tickets" | "admin" | "saga" | "venues" | "organizer" | "vendor" | "sponsor">("catalog");
+  const [adminSubTab, setAdminSubTab] = useState<"directory" | "events" | "financials" | "reports" | "reviews">("directory");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(initialEvents[0]);
   const [bookingMode, setBookingMode] = useState<"TICKET" | "BOOTH">("BOOTH");
+
+  // User role state
+  const [currentUserRole, setCurrentUserRole] = useState<"ATTENDEE" | "ORGANIZER" | "VENDOR" | "SPONSOR" | "ADMIN">("ATTENDEE");
+
+  // Platform Users Directory
+  const [users, setUsers] = useState<UserProfile[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("users_list");
+      if (saved) return JSON.parse(saved);
+    }
+    return [
+      { id: "usr-1", name: "Jane Doe (Attendee)", email: "jane@doe.com", role: "ATTENDEE", status: "ACTIVE" },
+      { id: "usr-2", name: "Sarah Connor (Organizer)", email: "sarah@sfvenues.com", role: "ORGANIZER", status: "ACTIVE" },
+      { id: "usr-3", name: "Luigi Rossini (Vendor)", email: "luigi@woodfiredpizza.it", role: "VENDOR", status: "ACTIVE" },
+      { id: "usr-4", name: "Apex Sponsors (Sponsor)", email: "sponsor@apex.com", role: "SPONSOR", status: "ACTIVE" },
+      { id: "usr-5", name: "System Admin (Admin)", email: "admin@auratickets.com", role: "ADMIN", status: "ACTIVE" },
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("users_list", JSON.stringify(users));
+  }, [users]);
+
+  // Notifications State
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("notifications");
+      if (saved) return JSON.parse(saved);
+    }
+    return [
+      { id: "notif-1", userId: "all", title: "Welcome to AuraTickets!", message: "Enjoy secure, real-time ticket bookings and instant vendor leasing.", timestamp: "2026-06-08 09:00", read: false },
+      { id: "notif-2", userId: "all", title: "Global Tech Summit 2026", message: "Booth reservations are now open for verified technology vendors.", timestamp: "2026-06-08 10:15", read: false }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("notifications", JSON.stringify(notifications));
+  }, [notifications]);
+
+  const addNotification = (title: string, message: string, roleTarget: string = "all") => {
+    const newNotif: Notification = {
+      id: `notif-${Date.now()}`,
+      userId: roleTarget,
+      title,
+      message,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      read: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  // Suspension check helper
+  const checkSuspended = () => {
+    const userRecord = users.find(u => u.role === currentUserRole);
+    if (userRecord && userRecord.status === "SUSPENDED") {
+      alert("🔒 Access Denied: Your account has been suspended by the platform administrator.");
+      return true;
+    }
+    return false;
+  };
+
+  // Platform fee percentage state
+  const [platformFeePercentage, setPlatformFeePercentage] = useState<number>(10);
+
+  // Vendor & Sponsor Application States
+  const [boothApplications, setBoothApplications] = useState<BoothApplication[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("boothApplications");
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("boothApplications", JSON.stringify(boothApplications));
+  }, [boothApplications]);
+
+  const [sponsorApplications, setSponsorApplications] = useState<SponsorApplication[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sponsorApplications");
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("sponsorApplications", JSON.stringify(sponsorApplications));
+  }, [sponsorApplications]);
+
+  // Vendor Lead & Sale States
+  const [vendorLeads, setVendorLeads] = useState<VendorLead[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("vendorLeads");
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("vendorLeads", JSON.stringify(vendorLeads));
+  }, [vendorLeads]);
+
+  const [vendorSales, setVendorSales] = useState<VendorSale[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("vendorSales");
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("vendorSales", JSON.stringify(vendorSales));
+  }, [vendorSales]);
+
+  // Social friend invite state
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteEmails, setInviteEmails] = useState("");
+  const [inviteEventId, setInviteEventId] = useState("");
+
+  // Payout states
+  const [releasedPayouts, setReleasedPayouts] = useState<string[]>([]);
+  // Ticket tier states
+  const [selectedTicketClass, setSelectedTicketClass] = useState<string>("General Admission");
+  const [enableTiers, setEnableTiers] = useState(false);
+  const [ebPrice, setEbPrice] = useState("");
+  const [ebInv, setEbInv] = useState("");
+  const [gaPriceForm, setGaPriceForm] = useState("");
+  const [gaInvForm, setGaInvForm] = useState("");
+  const [vipPriceForm, setVipPriceForm] = useState("");
+  const [vipInvForm, setVipInvForm] = useState("");
   // Event Detail Page
   const [showEventDetailPage, setShowEventDetailPage] = useState(false);
   const [detailPageEvent, setDetailPageEvent] = useState<Event | null>(null);
@@ -1377,6 +1589,10 @@ export default function Home() {
         }
       }
 
+      // 7. Event Moderation Status check (only APPROVED events show in catalog)
+      const isApproved = ev.moderationStatus === undefined || ev.moderationStatus === "APPROVED";
+      if (!isApproved) return false;
+
       return true;
     }).sort((a, b) => {
       const aSpon = a.isSponsored ? 1 : 0;
@@ -1496,11 +1712,17 @@ export default function Home() {
 
   // Calculate Prices for tickets or booth
   const pricingDetails = useMemo(() => {
-    if (!selectedEvent) return { subtotal: 0, discount: 0, total: 0, depositAmount: 0, remainingBalance: 0 };
+    const activeEvent = detailPageEvent || selectedEvent;
+    if (!activeEvent) return { subtotal: 0, discount: 0, total: 0, depositAmount: 0, remainingBalance: 0 };
     
     let subtotal = 0;
     if (bookingMode === "TICKET") {
-      subtotal = selectedEvent.price * ticketQuantity;
+      let ticketPrice = activeEvent.price;
+      if (activeEvent.ticketClasses) {
+        const tc = activeEvent.ticketClasses.find(c => c.name === selectedTicketClass);
+        if (tc) ticketPrice = tc.price;
+      }
+      subtotal = ticketPrice * ticketQuantity;
     } else {
       subtotal = selectedBooth ? selectedBooth.price : 0;
     }
@@ -1523,7 +1745,7 @@ export default function Home() {
     const remainingBalance = total - depositAmount;
 
     return { subtotal, discount, total, depositAmount, remainingBalance };
-  }, [selectedEvent, ticketQuantity, bookingMode, selectedBooth, appliedPromo, promoSuccess, promoCodes]);
+  }, [selectedEvent, detailPageEvent, selectedTicketClass, ticketQuantity, bookingMode, selectedBooth, appliedPromo, promoSuccess, promoCodes]);
 
   // Filter booths based on user selections
   const filteredBooths = useMemo(() => {
@@ -1592,15 +1814,27 @@ export default function Home() {
       email: regEmail,
       phone: regPhone,
       category: regCategory,
-      status: "PENDING",
+      status: otpVerificationEnabled ? "PENDING" : "VERIFIED",
       availableDates: ["2026-06-25", "2026-07-12", "2026-08-05", "2026-09-20", "2026-10-10", "2026-10-20"],
       pricing: 250
     };
 
-    setPendingVendorProfile(newProfile);
-    setVendorRegStep("otp");
-    setVendorOtpInput("");
-    setVendorOtpError(null);
+    if (otpVerificationEnabled) {
+      setPendingVendorProfile(newProfile);
+      setVendorRegStep("otp");
+      setVendorOtpInput("");
+      setVendorOtpError(null);
+    } else {
+      setVendorProfiles(prev => [...prev, newProfile]);
+      setActiveVendorProfile(newProfile);
+      setPendingVendorProfile(null);
+      setVendorRegStep("form");
+      setEditOwnerName(newProfile.ownerName);
+      setEditEmail(newProfile.email);
+      setEditPhone(newProfile.phone);
+      setEditCategory(newProfile.category);
+      alert("Business Profile registered successfully!");
+    }
   };
 
   // Vendor OTP Verification Action
@@ -1663,13 +1897,21 @@ export default function Home() {
       contactName: vpRegContactName,
       email: vpRegEmail,
       phone: vpRegPhone,
-      status: "PENDING"
+      status: otpVerificationEnabled ? "PENDING" : "VERIFIED"
     };
 
-    setPendingVenueProvider(newProvider);
-    setVpRegStep("otp");
-    setVpOtpInput("");
-    setVpOtpError(null);
+    if (otpVerificationEnabled) {
+      setPendingVenueProvider(newProvider);
+      setVpRegStep("otp");
+      setVpOtpInput("");
+      setVpOtpError(null);
+    } else {
+      setVenueProviders(prev => [...prev, newProvider]);
+      setActiveVenueProvider(newProvider);
+      setPendingVenueProvider(null);
+      setVpRegStep("form");
+      alert("Venue Provider profile registered successfully!");
+    }
   };
 
   // Venue Provider: OTP Verification Action
@@ -1961,6 +2203,232 @@ export default function Home() {
     }
   };
 
+  // Organizer: Duplicate Event
+  const handleDuplicateEvent = (eventId: string) => {
+    const originalEvent = events.find(e => e.id === eventId);
+    if (!originalEvent) return;
+
+    const newDate = prompt(`Enter a date for the duplicated event (Original: ${originalEvent.date}):`, originalEvent.date);
+    if (!newDate) return;
+
+    const duplicated: Event = {
+      ...originalEvent,
+      id: `evt-${Date.now()}`,
+      title: `Copy of ${originalEvent.title}`,
+      date: newDate,
+      ticketsSold: 0,
+      status: "UPCOMING",
+      moderationStatus: "PENDING",
+      ticketClasses: originalEvent.ticketClasses?.map(tc => ({
+        ...tc,
+        sold: 0
+      }))
+    };
+
+    setEvents(prev => [duplicated, ...prev]);
+    addSagaLog("Organizer-Service", `Duplicated event "${originalEvent.title}" to "${duplicated.title}" (Date: ${newDate}). Moderation status set to [PENDING].`, "success");
+    addNotification("Event Duplicated", `"${originalEvent.title}" has been duplicated. Awaiting Admin moderation.`, "ORGANIZER");
+    alert(`Event duplicated! Awaiting Admin approval.`);
+  };
+
+  // Admin User suspension toggler
+  const toggleUserSuspension = (userId: string) => {
+    setUsers(prev => prev.map(u => {
+      if (u.id === userId) {
+        const newStatus = u.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+        addSagaLog("Admin-Service", `User [${u.name}] status changed to [${newStatus}].`, "info");
+        addNotification(
+          newStatus === "SUSPENDED" ? "Account Suspended" : "Account Activated", 
+          `Your account has been ${newStatus.toLowerCase()} by the system administrator.`, 
+          u.role
+        );
+        return { ...u, status: newStatus };
+      }
+      return u;
+    }));
+  };
+
+  // Admin approve/reject events
+  const approveEvent = (eventId: string) => {
+    setEvents(prev => prev.map(e => e.id === eventId ? { ...e, moderationStatus: "APPROVED" as const } : e));
+    const ev = events.find(e => e.id === eventId);
+    if (ev) {
+      addSagaLog("Admin-Service", `Approved event: ${ev.title}`, "success");
+      addNotification("Event Approved", `Your event "${ev.title}" has been approved and is now live in the catalog.`, "ORGANIZER");
+    }
+  };
+
+  const rejectEvent = (eventId: string) => {
+    setEvents(prev => prev.map(e => e.id === eventId ? { ...e, moderationStatus: "REJECTED" as const } : e));
+    const ev = events.find(e => e.id === eventId);
+    if (ev) {
+      addSagaLog("Admin-Service", `Rejected event: ${ev.title}`, "error");
+      addNotification("Event Rejected", `Your event "${ev.title}" has been rejected.`, "ORGANIZER");
+    }
+  };
+
+  // Admin approve/reject vendor profiles
+  const approveVendor = (vendorId: string) => {
+    setVendorProfiles(prev => prev.map(v => v.id === vendorId ? { ...v, status: "VERIFIED" as const } : v));
+    const vp = vendorProfiles.find(v => v.id === vendorId);
+    if (vp) {
+      addSagaLog("Admin-Service", `Approved vendor: ${vp.businessName}`, "success");
+      addNotification("Vendor Approved", `Your vendor profile "${vp.businessName}" has been approved.`, "VENDOR");
+    }
+  };
+
+  const rejectVendor = (vendorId: string) => {
+    setVendorProfiles(prev => prev.filter(v => v.id !== vendorId));
+    addSagaLog("Admin-Service", `Rejected and removed vendor registration.`, "error");
+  };
+
+  // Admin transaction refund trigger SAGA compensation
+  const handleRefundTransaction = (order: Order) => {
+    if (order.status !== "PAID") return;
+    if (!confirm(`Are you sure you want to refund order "${order.id}" for $${order.totalAmount}? This will trigger a full compensating SAGA rollback.`)) return;
+
+    // 1. Mark order as CANCELLED
+    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "CANCELLED" as const } : o));
+
+    // 2. Compensate states
+    if (order.type === "TICKET") {
+      // Release tickets
+      setEvents(prev => prev.map(e => {
+        if (e.id === order.eventId) {
+          // Adjust class sold
+          let updatedClasses = e.ticketClasses;
+          if (e.ticketClasses && order.ticketClass) {
+            updatedClasses = e.ticketClasses.map(tc => 
+              tc.name === order.ticketClass 
+                ? { ...tc, sold: Math.max(0, tc.sold - order.quantity) } 
+                : tc
+            );
+          }
+          return {
+            ...e,
+            ticketsSold: Math.max(0, e.ticketsSold - order.quantity),
+            ticketClasses: updatedClasses
+          };
+        }
+        return e;
+      }));
+    } else if (order.type === "BOOTH" && order.boothId) {
+      // Release booth
+      setBooths(prev => prev.map(b => b.id === order.boothId ? {
+        ...b,
+        status: "AVAILABLE",
+        vendorBusinessName: undefined,
+        paymentTerms: undefined,
+        amountPaid: undefined
+      } : b));
+    }
+
+    // 3. Adjust promo usage
+    if (order.promoApplied) {
+      setPromoCodes(prev => prev.map(p => 
+        p.code.toUpperCase() === order.promoApplied!.toUpperCase() 
+          ? { ...p, usageCount: Math.max(0, p.usageCount - 1) } 
+          : p
+      ));
+    }
+
+    // 4. Log compensating transactions in SAGA console
+    addSagaLog("Order-Service", `Refund requested for Order: ${order.id}. Commencing SAGA Compensating rollback...`, "info");
+    addSagaLog("Payment-Service", `Refunding charge $${order.totalAmount} to customer. Reference ref_stripe_${Math.floor(Math.random()*1000000)}`, "success");
+    addSagaLog("Kafka-Broker", "Event [payment.refunded] published to 'payment-events' topic.", "event");
+    if (order.type === "TICKET") {
+      addSagaLog("Ticket-Service", `Restored ${order.quantity} ticket inventory for event: ${order.eventTitle}`, "success");
+    } else if (order.type === "BOOTH") {
+      addSagaLog("Booth-Service", `Restored booth slot ${order.boothName} to [AVAILABLE]`, "success");
+    }
+    addSagaLog("Notification-Service", `Refund notification email dispatched to customer.`, "success");
+    addSagaLog("Order-Service", `Compensating transactions completed. Order status updated to CANCELLED.`, "success");
+
+    alert(`Order ${order.id} refunded successfully! SAGA Rollback logged.`);
+  };
+
+  // Applications approval handlers
+  const handleApproveBoothApplication = (app: BoothApplication) => {
+    setBoothApplications(prev => prev.map(a => a.id === app.id ? { ...a, status: "APPROVED" as const } : a));
+    setBooths(prev => prev.map(b => b.id === app.boothId ? {
+      ...b,
+      status: "SOLD",
+      vendorBusinessName: app.vendorName,
+      paymentTerms: app.paymentTerms,
+      amountPaid: app.amountPaid
+    } : b));
+
+    const newOrder: Order = {
+      id: `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
+      eventId: app.eventId,
+      eventTitle: app.eventTitle,
+      quantity: 1,
+      totalAmount: app.price,
+      promoApplied: null,
+      status: "PAID",
+      timestamp: new Date().toLocaleString(),
+      paymentGateway: "Stripe",
+      idempotencyKey: `IDEM-BOOTH-APP-${app.id}`,
+      type: "BOOTH",
+      boothId: app.boothId,
+      boothName: app.boothName,
+      vendorBusinessName: app.vendorName,
+      paymentTerms: app.paymentTerms,
+      amountPaid: app.amountPaid,
+      remainingBalance: app.paymentTerms === "FULL" ? 0 : app.price - app.amountPaid
+    };
+    setOrders(prev => [newOrder, ...prev]);
+
+    addSagaLog("Order-Service", `Organizer approved vendor booth application for slot: ${app.boothName}. Order ${newOrder.id} logged.`, "success");
+    addNotification("Booth Lease Approved", `Your booth leasing application for "${app.eventTitle}" was approved by the organizer.`, "VENDOR");
+    alert("Vendor booth application approved! Booth status updated to SOLD and order logged.");
+  };
+
+  const handleRejectBoothApplication = (app: BoothApplication) => {
+    setBoothApplications(prev => prev.map(a => a.id === app.id ? { ...a, status: "REJECTED" as const } : a));
+    setBooths(prev => prev.map(b => b.id === app.boothId ? {
+      ...b,
+      status: "AVAILABLE",
+      vendorBusinessName: undefined,
+      paymentTerms: undefined,
+      amountPaid: undefined
+    } : b));
+    addSagaLog("Order-Service", `Organizer rejected vendor booth application for slot: ${app.boothName}`, "info");
+    addNotification("Booth Lease Rejected", `Your booth leasing application for "${app.eventTitle}" was rejected by the organizer.`, "VENDOR");
+    alert("Vendor booth application rejected.");
+  };
+
+  const handleApproveSponsorApplication = (app: SponsorApplication) => {
+    setSponsorApplications(prev => prev.map(a => a.id === app.id ? { ...a, status: "APPROVED" as const } : a));
+
+    const newOrder: Order = {
+      id: `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
+      eventId: app.eventId,
+      eventTitle: app.eventTitle,
+      quantity: 1,
+      totalAmount: app.packagePrice,
+      promoApplied: null,
+      status: "PAID",
+      timestamp: new Date().toLocaleString(),
+      paymentGateway: "Stripe",
+      idempotencyKey: `IDEM-SPONSOR-APP-${app.id}`,
+      type: "SPONSOR",
+      amountPaid: app.packagePrice
+    };
+    setOrders(prev => [newOrder, ...prev]);
+
+    addSagaLog("Order-Service", `Organizer approved sponsor application for package: ${app.packageName}. Order ${newOrder.id} logged.`, "success");
+    addNotification("Sponsorship Approved", `Your sponsorship application for "${app.eventTitle}" was approved by the organizer.`, "SPONSOR");
+    alert("Sponsorship application approved! Order logged.");
+  };
+
+  const handleRejectSponsorApplication = (app: SponsorApplication) => {
+    setSponsorApplications(prev => prev.map(a => a.id === app.id ? { ...a, status: "REJECTED" as const } : a));
+    addSagaLog("Order-Service", `Organizer rejected sponsor application for package: ${app.packageName}`, "info");
+    addNotification("Sponsorship Rejected", `Your sponsorship application for "${app.eventTitle}" was rejected by the organizer.`, "SPONSOR");
+    alert("Sponsorship application rejected.");
+  };
+
   // Admin: Create Booth/Catering Slot
   const handleCreateBooth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1998,13 +2466,21 @@ export default function Home() {
       contactName: regOrgContactName,
       email: regOrgEmail,
       phone: regOrgPhone,
-      status: "PENDING"
+      status: otpVerificationEnabled ? "PENDING" : "VERIFIED"
     };
 
-    setPendingOrganizerProfile(newProfile);
-    setOrganizerRegStep("otp");
-    setOrganizerOtpInput("");
-    setOrganizerOtpError(null);
+    if (otpVerificationEnabled) {
+      setPendingOrganizerProfile(newProfile);
+      setOrganizerRegStep("otp");
+      setOrganizerOtpInput("");
+      setOrganizerOtpError(null);
+    } else {
+      setOrganizerProfiles(prev => [...prev, newProfile]);
+      setActiveOrganizerProfile(newProfile);
+      setPendingOrganizerProfile(null);
+      setOrganizerRegStep("form");
+      alert("Organizer Profile registered successfully!");
+    }
   };
 
   // Organizer: Verify OTP Action
@@ -2062,9 +2538,31 @@ export default function Home() {
       alert("Please fill in all details.");
       return;
     }
-    setSponsorStep("otp");
-    setSponsorOtpInput("");
-    setSponsorOtpError(null);
+    if (otpVerificationEnabled) {
+      setSponsorStep("otp");
+      setSponsorOtpInput("");
+      setSponsorOtpError(null);
+    } else {
+      if (sponsorSelectedEvent && sponsorSelectedPackage) {
+        const interest: SponsorInterest = {
+          id: `sp-int-${Date.now()}`,
+          eventId: sponsorSelectedEvent.id,
+          eventTitle: sponsorSelectedEvent.title,
+          packageId: sponsorSelectedPackage.id,
+          packageName: sponsorSelectedPackage.name,
+          packagePrice: sponsorSelectedPackage.price,
+          companyName: sponsorCompanyName,
+          contactName: sponsorContactName,
+          email: sponsorEmail,
+          phone: sponsorPhone,
+          status: "VERIFIED",
+          timestamp: new Date().toLocaleString()
+        };
+        setSponsorInterests(prev => [interest, ...prev]);
+        addSagaLog("Sponsorship-Service", `Verified sponsor interest from ${sponsorCompanyName} for event: ${sponsorSelectedEvent.title}`, "success");
+        setSponsorStep("success");
+      }
+    }
   };
 
   const handleVerifySponsorOtp = (e: React.FormEvent) => {
@@ -2098,13 +2596,23 @@ export default function Home() {
   // Organizer: Save / Update Event Action (Creates or Updates Event + automates Booth allocation)
   const handleOrganizerSaveEvent = (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkSuspended()) return;
+
     if (!activeOrganizerProfile) {
       alert("Please sign in as an organizer first.");
       return;
     }
-    if (!newEventTitle || !newEventDate || !newEventPrice || !newEventInventory) {
-      alert("Please fill in all required fields.");
-      return;
+    
+    if (enableTiers) {
+      if (!newEventTitle || !newEventDate || !gaPriceForm || !gaInvForm) {
+        alert("Please fill in all required fields (GA Price & Inventory are required when tiers are enabled).");
+        return;
+      }
+    } else {
+      if (!newEventTitle || !newEventDate || !newEventPrice || !newEventInventory) {
+        alert("Please fill in all required fields.");
+        return;
+      }
     }
 
     let finalLocation = newEventLoc;
@@ -2160,15 +2668,19 @@ export default function Home() {
     }
 
     const targetEventId = orgEditingEventId || `evt-${events.length + 1}`;
-    
+    const calculatedPrice = enableTiers ? (parseFloat(gaPriceForm) || 0) : parseFloat(newEventPrice);
+    const calculatedInventory = enableTiers 
+      ? ((parseInt(ebInv) || 0) + (parseInt(gaInvForm) || 0) + (parseInt(vipInvForm) || 0))
+      : parseInt(newEventInventory);
+
     const targetEvent: Event = {
       id: targetEventId,
       title: newEventTitle,
       description: newEventDesc || "No description provided.",
       location: finalLocation,
       date: newEventDate,
-      price: parseFloat(newEventPrice),
-      ticketInventory: parseInt(newEventInventory),
+      price: calculatedPrice,
+      ticketInventory: calculatedInventory,
       ticketsSold: orgEditingEventId ? (events.find(ev => ev.id === orgEditingEventId)?.ticketsSold || 0) : 0,
       status: orgEditingEventId ? (events.find(ev => ev.id === orgEditingEventId)?.status || "UPCOMING") : "UPCOMING",
       category: newEventCategory,
@@ -2181,7 +2693,13 @@ export default function Home() {
       longitude: newEventLng ? parseFloat(newEventLng) : undefined,
       isSponsored: newEventIsSponsored,
       organizerId: activeOrganizerProfile.id,
-      sponsorPackages: orgEventSponsorPackages
+      sponsorPackages: orgEventSponsorPackages,
+      moderationStatus: orgEditingEventId ? (events.find(ev => ev.id === orgEditingEventId)?.moderationStatus || "PENDING") : "PENDING",
+      ticketClasses: enableTiers ? [
+        { name: "Early Bird", price: parseFloat(ebPrice) || 0, inventory: parseInt(ebInv) || 0, sold: orgEditingEventId ? (events.find(ev => ev.id === orgEditingEventId)?.ticketClasses?.find(tc => tc.name === "Early Bird")?.sold || 0) : 0 },
+        { name: "General Admission", price: parseFloat(gaPriceForm) || 0, inventory: parseInt(gaInvForm) || 0, sold: orgEditingEventId ? (events.find(ev => ev.id === orgEditingEventId)?.ticketClasses?.find(tc => tc.name === "General Admission")?.sold || 0) : 0 },
+        { name: "VIP", price: parseFloat(vipPriceForm) || 0, inventory: parseInt(vipInvForm) || 0, sold: orgEditingEventId ? (events.find(ev => ev.id === orgEditingEventId)?.ticketClasses?.find(tc => tc.name === "VIP")?.sold || 0) : 0 }
+      ] : undefined
     };
 
     if (orgEditingEventId) {
@@ -2189,7 +2707,8 @@ export default function Home() {
       addSagaLog("Organizer-Service", `Updated event "${newEventTitle}" successfully.`, "success");
     } else {
       setEvents(prev => [targetEvent, ...prev]);
-      addSagaLog("Organizer-Service", `Created new event "${newEventTitle}" successfully.`, "success");
+      addSagaLog("Organizer-Service", `Created new event "${newEventTitle}" successfully. Moderation status set to [PENDING].`, "success");
+      addNotification("New Event Submitted", `Your event "${newEventTitle}" has been submitted for moderation.`, "ORGANIZER");
     }
 
     if (allocatedVenue) {
@@ -2268,6 +2787,13 @@ export default function Home() {
     setNewEventIsSponsored(false);
     setOrgSelectedVendorIds([]);
     setOrgEventSponsorPackages([]);
+    setEnableTiers(false);
+    setEbPrice("");
+    setEbInv("");
+    setGaPriceForm("");
+    setGaInvForm("");
+    setVipPriceForm("");
+    setVipInvForm("");
     
     alert("Event saved successfully!");
   };
@@ -2291,17 +2817,42 @@ export default function Home() {
       setSagaState("tickets-reserved");
       addSagaLog("Ticket-Service", `Consuming order event. Allocating event inventory for: ${eventObj.title}`, "info");
       
-      if (eventObj.ticketInventory - eventObj.ticketsSold < itemQuantity) {
-        addSagaLog("Ticket-Service", `Inventory check failed! Required: ${itemQuantity}, Available: ${eventObj.ticketInventory - eventObj.ticketsSold}`, "error");
+      let hasInventory = true;
+      let availStockText = "";
+      if (eventObj.ticketClasses) {
+        const tClass = eventObj.ticketClasses.find(tc => tc.name === selectedTicketClass);
+        if (!tClass || tClass.inventory - tClass.sold < itemQuantity) {
+          hasInventory = false;
+          availStockText = tClass ? `${tClass.inventory - tClass.sold}` : "0";
+        }
+      } else {
+        if (eventObj.ticketInventory - eventObj.ticketsSold < itemQuantity) {
+          hasInventory = false;
+          availStockText = `${eventObj.ticketInventory - eventObj.ticketsSold}`;
+        }
+      }
+
+      if (!hasInventory) {
+        addSagaLog("Ticket-Service", `Inventory check failed! Required: ${itemQuantity}, Available: ${availStockText}`, "error");
         addSagaLog("Kafka-Broker", "Event [tickets.reservation.failed] published to 'ticket-events' topic.", "event");
         await delay(1000);
         rollbackSaga("inventory-failure", orderId, itemQuantity, eventObj, appliedCode);
         return;
       }
 
-      setEvents(prev => prev.map(e => e.id === eventObj.id ? { ...e, ticketsSold: e.ticketsSold + itemQuantity } : e));
+      setEvents(prev => prev.map(e => {
+        if (e.id === eventObj.id) {
+          if (e.ticketClasses) {
+            const updatedClasses = e.ticketClasses.map(tc => tc.name === selectedTicketClass ? { ...tc, sold: tc.sold + itemQuantity } : tc);
+            return { ...e, ticketsSold: e.ticketsSold + itemQuantity, ticketClasses: updatedClasses };
+          }
+          return { ...e, ticketsSold: e.ticketsSold + itemQuantity };
+        }
+        return e;
+      }));
+
       addSagaLog("Ticket-Service", `Acquired MySQL row lock (FOR UPDATE) on tickets table.`, "info");
-      addSagaLog("Ticket-Service", `Optimistic version check verified. Reserved ${itemQuantity} ticket(s).`, "success");
+      addSagaLog("Ticket-Service", `Optimistic version check verified. Reserved ${itemQuantity} ticket(s) of tier [${eventObj.ticketClasses ? selectedTicketClass : "General Admission"}].`, "success");
       addSagaLog("Kafka-Broker", "Event [tickets.reserved] published to 'ticket-events' topic.", "event");
       await delay(1200);
 
@@ -2343,7 +2894,8 @@ export default function Home() {
           timestamp: new Date().toLocaleString(),
           paymentGateway,
           idempotencyKey: `IDEM-${orderId}`,
-          type: "TICKET"
+          type: "TICKET",
+          ticketClass: eventObj.ticketClasses ? selectedTicketClass : "General Admission"
         };
         setOrders(prev => [finalOrder, ...prev]);
 
@@ -2469,7 +3021,16 @@ export default function Home() {
     if (bookingMode === "TICKET") {
       // Revert Tickets
       addSagaLog("Ticket-Service", `Reverting ticket reservations: restoring +${itemQuantity} tickets.`, "info");
-      setEvents(prev => prev.map(e => e.id === eventObj.id ? { ...e, ticketsSold: e.ticketsSold - itemQuantity } : e));
+      setEvents(prev => prev.map(e => {
+        if (e.id === eventObj.id) {
+          if (e.ticketClasses) {
+            const updatedClasses = e.ticketClasses.map(tc => tc.name === selectedTicketClass ? { ...tc, sold: Math.max(0, tc.sold - itemQuantity) } : tc);
+            return { ...e, ticketsSold: Math.max(0, e.ticketsSold - itemQuantity), ticketClasses: updatedClasses };
+          }
+          return { ...e, ticketsSold: Math.max(0, e.ticketsSold - itemQuantity) };
+        }
+        return e;
+      }));
       addSagaLog("Ticket-Service", `MySQL row lock released. Stock inventory synchronized.`, "success");
       await delay(1000);
     } else {
@@ -2510,7 +3071,8 @@ export default function Home() {
       vendorBusinessName: bookingMode === "BOOTH" ? activeVendorProfile?.businessName : undefined,
       paymentTerms,
       amountPaid: 0,
-      remainingBalance: 0
+      remainingBalance: 0,
+      ticketClass: bookingMode === "TICKET" && eventObj.ticketClasses ? selectedTicketClass : undefined
     };
     setOrders(prev => [failedOrder, ...prev]);
 
@@ -2521,6 +3083,7 @@ export default function Home() {
 
   // Launch Checkout Dialog / 2FA check
   const startCheckout = () => {
+    if (checkSuspended()) return;
     if (!selectedEvent) return;
 
     if (bookingMode === "TICKET") {
@@ -2582,67 +3145,201 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Desktop Navigation Tabs */}
+        {/* Desktop Navigation Tabs - dynamically filtered by role */}
         <nav className="flex items-center gap-1.5 bg-[var(--glass-bg)] p-1.5 rounded-xl border border-[var(--glass-border)]">
-          <button
-            onClick={() => setActiveTab("catalog")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
-              activeTab === "catalog" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-            }`}
-          >
-            Catalog
-          </button>
-          <button
-            onClick={() => setActiveTab("my-tickets")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom flex items-center gap-1.5 ${
-              activeTab === "my-tickets" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-            }`}
-          >
-            My Orders & Profiles
-            {(orders.length) > 0 && (
-              <span className="bg-indigo-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                {orders.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("venues")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
-              activeTab === "venues" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-            }`}
-          >
-            Venue Providers
-          </button>
-          <button
-            onClick={() => setActiveTab("organizer")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
-              activeTab === "organizer" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-            }`}
-          >
-            Event Organizers
-          </button>
-          <button
-            onClick={() => setActiveTab("admin")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
-              activeTab === "admin" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-            }`}
-          >
-            Admin Panel
-          </button>
-          <button
-            onClick={() => setActiveTab("saga")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom flex items-center gap-1.5 ${
-              activeTab === "saga" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-            }`}
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${sagaState !== "idle" && sagaState !== "completed" && sagaState !== "rollback-complete" ? "animate-spin text-sky-400" : ""}`} />
-            Saga Console
-          </button>
+          {currentUserRole === "ATTENDEE" && (
+            <>
+              <button
+                onClick={() => setActiveTab("catalog")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
+                  activeTab === "catalog" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
+              >
+                Catalog
+              </button>
+              <button
+                onClick={() => setActiveTab("my-tickets")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom flex items-center gap-1.5 ${
+                  activeTab === "my-tickets" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
+              >
+                My Orders & Profile
+                {orders.length > 0 && (
+                  <span className="bg-indigo-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                    {orders.length}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
+
+          {currentUserRole === "ORGANIZER" && (
+            <button
+              onClick={() => setActiveTab("organizer")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
+                activeTab === "organizer" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+              }`}
+            >
+              Organizer Console
+            </button>
+          )}
+
+          {currentUserRole === "VENDOR" && (
+            <button
+              onClick={() => setActiveTab("vendor")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
+                activeTab === "vendor" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+              }`}
+            >
+              Vendor Dashboard
+            </button>
+          )}
+
+          {currentUserRole === "SPONSOR" && (
+            <button
+              onClick={() => setActiveTab("sponsor")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
+                activeTab === "sponsor" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+              }`}
+            >
+              Sponsor Dashboard
+            </button>
+          )}
+
+          {currentUserRole === "ADMIN" && (
+            <>
+              <button
+                onClick={() => setActiveTab("admin")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
+                  activeTab === "admin" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
+              >
+                Admin Control
+              </button>
+              <button
+                onClick={() => setActiveTab("saga")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom flex items-center gap-1.5 ${
+                  activeTab === "saga" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${sagaState !== "idle" && sagaState !== "completed" && sagaState !== "rollback-complete" ? "animate-spin text-sky-400" : ""}`} />
+                Saga Console
+              </button>
+            </>
+          )}
         </nav>
 
-        {/* Theme Select & 2FA Quick Badge */}
-        <div className="flex items-center gap-3">
+        {/* Right side: Login role selector, Notifications, Theme toggle */}
+        <div className="flex items-center gap-3 relative">
           
+          {/* Notifications Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="p-2 rounded-xl bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-primary)] hover:bg-[var(--glass-border)] transition-colors shadow-sm relative"
+              aria-label="Notifications"
+            >
+              <span className="text-xs">🔔</span>
+              {notifications.filter(n => (n.userId === "all" || n.userId === currentUserRole) && !n.read).length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                  {notifications.filter(n => (n.userId === "all" || n.userId === currentUserRole) && !n.read).length}
+                </span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <div className="absolute right-0 mt-2.5 w-80 glass rounded-2xl border border-[var(--glass-border)] p-4 shadow-xl z-50 space-y-3">
+                <div className="flex justify-between items-center pb-2 border-b border-[var(--glass-border)]">
+                  <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Notifications</h4>
+                  <button
+                    onClick={() => {
+                      setNotifications(prev => prev.map(n => n.userId === "all" || n.userId === currentUserRole ? { ...n, read: true } : n));
+                    }}
+                    className="text-[10px] text-sky-400 hover:text-sky-300 font-semibold"
+                  >
+                    Mark all as read
+                  </button>
+                </div>
+                <div className="max-h-60 overflow-y-auto space-y-2.5 pr-1 text-[11px]">
+                  {notifications.filter(n => n.userId === "all" || n.userId === currentUserRole).length === 0 ? (
+                    <p className="text-[10px] text-[var(--text-secondary)] italic text-center py-4">No notifications yet.</p>
+                  ) : (
+                    notifications
+                      .filter(n => n.userId === "all" || n.userId === currentUserRole)
+                      .map(n => (
+                        <div
+                          key={n.id}
+                          onClick={() => {
+                            setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item));
+                          }}
+                          className={`p-2.5 rounded-lg border transition cursor-pointer ${
+                            n.read 
+                              ? "bg-transparent border-[var(--glass-border)] text-[var(--text-secondary)]" 
+                              : "bg-sky-500/10 border-sky-500/20 text-[var(--text-primary)] font-semibold"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <span className="font-bold text-xs">{n.title}</span>
+                            <span className="text-[8px] text-slate-500 font-mono">{n.timestamp}</span>
+                          </div>
+                          <p className="text-[10px] mt-1 text-[var(--text-secondary)] leading-relaxed">{n.message}</p>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Unified Login Role Picker */}
+          <div className="flex items-center gap-1.5">
+            <select
+              value={currentUserRole}
+              onChange={(e) => {
+                const selected = e.target.value as "ATTENDEE" | "ORGANIZER" | "VENDOR" | "SPONSOR" | "ADMIN";
+                setCurrentUserRole(selected);
+                if (selected === "ATTENDEE") {
+                  setActiveTab("catalog");
+                } else if (selected === "ORGANIZER") {
+                  setActiveTab("organizer");
+                } else if (selected === "VENDOR") {
+                  setActiveTab("vendor");
+                } else if (selected === "SPONSOR") {
+                  setActiveTab("sponsor");
+                } else if (selected === "ADMIN") {
+                  setActiveTab("admin");
+                }
+                addSagaLog("Auth-Service", `User switched role to [${selected}] (Mock Login).`, "info");
+              }}
+              className="bg-[var(--glass-bg)] border border-[var(--glass-border)] text-xs font-bold font-outfit py-1.5 px-3 rounded-xl text-[var(--text-primary)] focus:outline-none cursor-pointer hover:bg-[var(--glass-border)] transition-colors shadow-sm"
+            >
+              <option value="ATTENDEE" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>👤 Login: Attendee (Jane)</option>
+              <option value="ORGANIZER" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>🏢 Login: Event Organizer (Sarah)</option>
+              <option value="VENDOR" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>🎪 Login: Food/Tech Vendor (Luigi)</option>
+              <option value="SPONSOR" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>🎗️ Login: Brand Sponsor (Apex)</option>
+              <option value="ADMIN" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>🛡️ Login: Platform Admin</option>
+            </select>
+          </div>
+
+          {/* OTP Verification Toggle Button */}
+          <button
+            onClick={() => {
+              const newVal = !otpVerificationEnabled;
+              setOtpVerificationEnabled(newVal);
+              localStorage.setItem("otpVerificationEnabled", String(newVal));
+              addSagaLog("System-Config", `OTP Verification is now ${newVal ? "ENABLED" : "DISABLED"} globally.`, newVal ? "success" : "info");
+            }}
+            className={`flex items-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-bold font-outfit transition-colors shadow-sm cursor-pointer ${
+              otpVerificationEnabled
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                : "bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20"
+            }`}
+            title="Toggle system-wide OTP verification requirement"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span>OTP: {otpVerificationEnabled ? "ON" : "OFF"}</span>
+          </button>
+
           {/* Light/Dark Toggle Button */}
           <button
             onClick={toggleTheme}
@@ -2650,18 +3347,6 @@ export default function Home() {
             aria-label="Toggle Dark/Light Mode"
           >
             {theme === "light" ? <Moon className="w-4 h-4 text-indigo-500" /> : <Sun className="w-4 h-4 text-amber-400" />}
-          </button>
-
-          <button
-            onClick={() => setActiveTab("my-tickets")}
-            className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all-custom ${
-              is2FaEnabled 
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" 
-                : "border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:border-[var(--text-secondary)]"
-            }`}
-          >
-            <Shield className="w-3.5 h-3.5" />
-            2FA: {is2FaEnabled ? "Active" : "Disabled"}
           </button>
         </div>
       </header>
@@ -3417,500 +4102,55 @@ export default function Home() {
                     </button>
                   </div>
 
-                  {/* MODE B: Vendor Booking Panel */}
-                  {bookingMode === "BOOTH" && (
-                    <div className="space-y-6">
-                      
-                      {/* Step B1: Profile Registration Wizard (Visible if unverified) */}
-                      {!activeVendorProfile ? (
-                        <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
-                          <div className="flex items-start gap-3">
-                            <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400 border border-amber-500/25">
-                              <ShieldAlert className="w-5 h-5 animate-pulse" />
-                            </div>
-                            <div>
-                              <h4 className="text-base font-bold text-[var(--text-primary)]">Vendor Verification Required</h4>
-                              <p className="text-xs text-[var(--text-secondary)] mt-1">Please register and verify your business profile via OTP to access leasing catalog.</p>
-                            </div>
-                          </div>
-
-                          {vendorRegStep === "form" ? (
-                            <form onSubmit={handleRegisterVendorProfile} className="space-y-3 pt-2">
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Business Name *</label>
-                                <input
-                                  type="text"
-                                  required
-                                  value={regBusinessName}
-                                  onChange={(e) => setRegBusinessName(e.target.value)}
-                                  placeholder="e.g. Gourmet Pizza Co."
-                                  className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                                />
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Owner Name *</label>
-                                  <input
-                                    type="text"
-                                    required
-                                    value={regOwnerName}
-                                    onChange={(e) => setRegOwnerName(e.target.value)}
-                                    placeholder="e.g. Luigi Rossini"
-                                    className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Category</label>
-                                  <select
-                                    value={regCategory}
-                                    onChange={(e) => setRegCategory(e.target.value)}
-                                    className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
-                                  >
-                                    <option value="Mexican">Mexican Food</option>
-                                    <option value="Italian">Italian Food</option>
-                                    <option value="Desserts">Desserts</option>
-                                    <option value="Beverages">Beverages</option>
-                                    <option value="Tech Showcase">Tech Showcase</option>
-                                    <option value="Crafts">Crafts & Art</option>
-                                    <option value="Apparel">Apparel</option>
-                                  </select>
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Email Address *</label>
-                                  <input
-                                    type="email"
-                                    required
-                                    value={regEmail}
-                                    onChange={(e) => setRegEmail(e.target.value)}
-                                    placeholder="vendor@company.com"
-                                    className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Phone Number *</label>
-                                  <input
-                                    type="tel"
-                                    required
-                                    value={regPhone}
-                                    onChange={(e) => setRegPhone(e.target.value)}
-                                    placeholder="+1 555-0199"
-                                    className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                                  />
-                                </div>
-                              </div>
-
-                              <button
-                                type="submit"
-                                className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 mt-2"
-                              >
-                                <Smartphone className="w-4 h-4" />
-                                Send Verification OTP
-                              </button>
-                            </form>
-                          ) : (
-                            <form onSubmit={handleVerifyVendorOtp} className="space-y-4 pt-2">
-                              <div className="space-y-2">
-                                <div className="flex justify-between items-center text-xs text-[var(--text-secondary)]">
-                                  <label className="font-semibold">Verification Code</label>
-                                  <span>Verification code: <strong>987654</strong></span>
-                                </div>
-                                <input
-                                  type="text"
-                                  required
-                                  maxLength={6}
-                                  value={vendorOtpInput}
-                                  onChange={(e) => setVendorOtpInput(e.target.value)}
-                                  placeholder="e.g. 987654"
-                                  className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl py-2 px-3 text-center text-lg tracking-widest text-[var(--text-primary)] placeholder-slate-705 font-mono font-bold w-full focus:outline-none focus:border-amber-500"
-                                />
-                                {vendorOtpError && (
-                                  <p className="text-rose-400 text-xs text-center font-medium mt-1 flex items-center justify-center gap-1">
-                                    <X className="w-3.5 h-3.5" /> {vendorOtpError}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="flex gap-2.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setVendorRegStep("form")}
-                                  className="w-1/2 bg-[var(--glass-bg)] border border-[var(--glass-border)] hover:border-[var(--text-secondary)] text-xs py-2 rounded-xl text-[var(--text-primary)]"
-                                >
-                                  Back
-                                </button>
-                                <button
-                                  type="submit"
-                                  className="w-1/2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded-xl text-xs transition"
-                                >
-                                  Verify OTP
-                                </button>
-                              </div>
-                            </form>
-                          )}
-                        </div>
-                      ) : (
-                        // Step B2: Verified Vendor Booking Console
-                        <div className="space-y-6">
-                          
-                          {/* Active Verified Vendor Profile Badge */}
-                          <div className="glass rounded-xl border border-emerald-500/25 bg-emerald-950/5 p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 border border-emerald-500/20">
-                                <UserCheck className="w-5 h-5" />
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-bold text-[var(--text-primary)]">{activeVendorProfile.businessName}</h4>
-                                <span className="text-[10px] text-emerald-400 uppercase tracking-widest font-mono font-bold">Verified Vendor</span>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveVendorProfile(null);
-                                setSelectedBooth(null);
-                              }}
-                              className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs"
-                            >
-                              Disconnect
-                            </button>
-                          </div>
-
-                          {/* Rental Layout List */}
-                          <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-6 relative overflow-hidden">
-                            <div className="absolute -top-16 -right-16 w-36 h-36 bg-sky-500/10 rounded-full blur-2xl"></div>
-
-                            {/* Filters */}
-                            <div className="space-y-3 p-3.5 bg-[var(--input-bg)] rounded-xl border border-[var(--glass-border)]">
-                              <h5 className="text-[11px] font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider flex items-center gap-1">
-                                <Filter className="w-3 h-3 text-sky-400" />
-                                Layout Filters
-                              </h5>
-
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                  <span className="text-[9px] text-[var(--text-secondary)] font-semibold block uppercase">Type</span>
-                                  <select
-                                    value={boothTypeFilter}
-                                    onChange={(e) => {
-                                      setBoothTypeFilter(e.target.value as any);
-                                      setSelectedBooth(null);
-                                    }}
-                                    className="bg-[var(--bg-primary)] border border-[var(--glass-border)] rounded-lg py-1 px-2 text-[11px] text-[var(--text-primary)] w-full focus:outline-none"
-                                  >
-                                    <option value="ALL">All Slots</option>
-                                    <option value="STANDARD">Standard Booth</option>
-                                    <option value="FOOD_TRUCK">Food Truck Spot</option>
-                                  </select>
-                                </div>
-
-                                <div className="space-y-1">
-                                  <span className="text-[9px] text-[var(--text-secondary)] font-semibold block uppercase">Category</span>
-                                  <select
-                                    value={boothCategoryFilter}
-                                    onChange={(e) => {
-                                      setBoothCategoryFilter(e.target.value);
-                                      setSelectedBooth(null);
-                                    }}
-                                    className="bg-[var(--bg-primary)] border border-[var(--glass-border)] rounded-lg py-1 px-2 text-[11px] text-[var(--text-primary)] w-full focus:outline-none"
-                                  >
-                                    <option value="ALL">All Categories</option>
-                                    {availableCategories.map(cat => (
-                                      <option key={cat} value={cat}>{cat}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Booth Grid */}
-                            <div className="space-y-2">
-                              <label className="text-xs text-[var(--text-secondary)] font-medium block">Select Event Booth / Slot</label>
-                              <div className="max-h-44 overflow-y-auto space-y-2 pr-1">
-                                {filteredBooths.length === 0 ? (
-                                  <div className="text-center text-xs text-[var(--text-secondary)] py-6 border border-dashed border-[var(--glass-border)] rounded-xl">
-                                    No booths matching filters.
-                                  </div>
-                                ) : (
-                                  filteredBooths.map(booth => {
-                                    const isBoothSelected = selectedBooth?.id === booth.id;
-                                    const isSold = booth.status === "SOLD";
-
-                                    return (
-                                      <div
-                                        key={booth.id}
-                                        onClick={() => {
-                                          if (booth.status === "AVAILABLE") {
-                                            setSelectedBooth(booth);
-                                          }
-                                        }}
-                                        className={`p-3 rounded-xl border text-left transition-all flex justify-between items-center ${
-                                          isSold
-                                            ? "border-[var(--glass-border)] bg-[var(--glass-bg)] opacity-50 cursor-not-allowed text-[var(--text-secondary)]"
-                                            : isBoothSelected
-                                              ? "border-sky-500 bg-sky-950/20 text-[var(--text-primary)] ring-1 ring-sky-500/20 cursor-pointer"
-                                              : "border-[var(--glass-border)] hover:border-[var(--text-secondary)]/30 bg-[var(--input-bg)] cursor-pointer text-[var(--text-primary)]"
-                                        }`}
-                                      >
-                                        <div>
-                                          <div className="flex items-center gap-2">
-                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono uppercase ${
-                                              booth.type === "FOOD_TRUCK" 
-                                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" 
-                                                : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                                            }`}>
-                                              {booth.type === "FOOD_TRUCK" ? "Food Truck" : "Booth"}
-                                            </span>
-                                            <span className="text-xs font-bold">{booth.name}</span>
-                                          </div>
-                                          
-                                          <div className="flex gap-2 items-center text-[10px] text-[var(--text-secondary)] mt-1">
-                                            <span>Category: <strong>{booth.category}</strong></span>
-                                            {isSold && (
-                                              <span className="text-[9px] text-slate-400 font-medium">({booth.vendorBusinessName})</span>
-                                            )}
-                                          </div>
-                                        </div>
-                                        
-                                        <div className="text-right flex items-center gap-2.5">
-                                          <span className="text-xs font-mono font-bold">${booth.price}</span>
-                                          <div className={`h-4 w-4 rounded-full border flex items-center justify-center ${
-                                            isSold
-                                              ? "border-rose-500/50 bg-rose-500/20 text-rose-400"
-                                              : isBoothSelected
-                                                ? "border-sky-500 bg-sky-500 text-white"
-                                                : "border-slate-700 bg-transparent"
-                                          }`}>
-                                            {isSold ? <X className="w-2.5 h-2.5" /> : (isBoothSelected ? <Check className="w-2.5 h-2.5" /> : null)}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Flexible Payment Terms Selector */}
-                            {selectedBooth && (
-                              <div className="space-y-2.5 pt-2 border-t border-[var(--glass-border)]">
-                                <label className="text-xs text-[var(--text-secondary)] font-medium block">Select Payment Terms</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => setPaymentTerms("FULL")}
-                                    className={`py-3 px-3 rounded-xl border flex flex-col items-center justify-center transition-all-custom ${
-                                      paymentTerms === "FULL" 
-                                        ? "border-sky-500 bg-sky-500/10 text-sky-400 shadow shadow-sky-500/10" 
-                                        : "border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:border-[var(--text-primary)]/20"
-                                    }`}
-                                  >
-                                    <span className="text-xs font-bold">Pay in Full</span>
-                                    <span className="text-[10px] font-mono mt-0.5 text-[var(--text-secondary)] font-medium">${pricingDetails.total} due now</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setPaymentTerms("DEPOSIT")}
-                                    className={`py-3 px-3 rounded-xl border flex flex-col items-center justify-center transition-all-custom ${
-                                      paymentTerms === "DEPOSIT" 
-                                        ? "border-indigo-500 bg-indigo-500/10 text-indigo-400 shadow shadow-indigo-500/10" 
-                                        : "border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:border-[var(--text-primary)]/20"
-                                    }`}
-                                  >
-                                    <span className="text-xs font-bold">Reserve with Deposit</span>
-                                    <span className="text-[10px] font-mono mt-0.5 text-[var(--text-secondary)] font-medium">${pricingDetails.depositAmount} now (25%)</span>
-                                  </button>
-                                </div>
-                              </div>
-                            )}
- 
-                            {/* Promo Code Input */}
-                            <div className="space-y-2 pt-2 border-t border-[var(--glass-border)]">
-                              <label className="text-xs text-[var(--text-secondary)] font-medium flex items-center gap-1.5">
-                                <Gift className="w-3.5 h-3.5 text-indigo-400" />
-                                Promo Code
-                              </label>
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
-                                  value={appliedPromo}
-                                  onChange={(e) => {
-                                    setAppliedPromo(e.target.value.toUpperCase());
-                                    setPromoSuccess(null);
-                                    setPromoError(null);
-                                  }}
-                                  placeholder="e.g. WELCOME10, AURA50"
-                                  className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full font-mono uppercase"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={verifyPromo}
-                                  className="bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-secondary)]/50 text-xs px-3.5 rounded-xl transition-all-custom text-[var(--text-primary)] font-medium"
-                                >
-                                  Apply
-                                </button>
-                              </div>
-                              {promoError && <p className="text-rose-400 text-xs font-medium mt-1 flex items-center gap-1"><X className="w-3 h-3" />{promoError}</p>}
-                              {promoSuccess && <p className="text-emerald-400 text-xs font-medium mt-1 flex items-center gap-1"><Check className="w-3 h-3" />{promoSuccess}</p>}
-                            </div>
- 
-                            {/* Payment Gateway */}
-                            <div className="space-y-2 pt-2 border-t border-[var(--glass-border)]">
-                              <label className="text-xs text-[var(--text-secondary)] font-medium block">Select Payment Gateway</label>
-                              <div className="grid grid-cols-2 gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => setPaymentGateway("Stripe")}
-                                  className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-2 text-xs font-semibold transition-all-custom ${
-                                    paymentGateway === "Stripe" 
-                                      ? "border-sky-500 bg-sky-500/10 text-sky-400 shadow shadow-sky-500/10" 
-                                      : "border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:border-[var(--text-primary)]/20"
-                                  }`}
-                                >
-                                  <CreditCard className="w-4 h-4" />
-                                  Stripe API
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setPaymentGateway("PayPal")}
-                                  className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-2 text-xs font-semibold transition-all-custom ${
-                                    paymentGateway === "PayPal" 
-                                      ? "border-indigo-500 bg-indigo-500/10 text-indigo-400 shadow shadow-indigo-500/10" 
-                                      : "border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:border-[var(--text-primary)]/20"
-                                  }`}
-                                >
-                                  <Zap className="w-4 h-4" />
-                                  PayPal Orders
-                                </button>
-                              </div>
-                            </div>
- 
-                            {/* Payment Simulation Modifier */}
-                            <div className="bg-[var(--glass-bg)] rounded-xl p-3 border border-[var(--glass-border)] flex items-center justify-between">
-                              <div>
-                                <span className="text-xs font-bold text-[var(--text-primary)] block">Simulate Payment Success?</span>
-                                <span className="text-[10px] text-[var(--text-secondary)]">Toggle to trigger SAGA compensation rollback.</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setSimulatePaymentFailure(!simulatePaymentFailure)}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                                  simulatePaymentFailure ? "bg-rose-500" : "bg-sky-500"
-                                }`}
-                              >
-                                <span
-                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                    simulatePaymentFailure ? "translate-x-6" : "translate-x-1"
-                                  }`}
-                                />
-                              </button>
-                            </div>
-
-                            {/* Cost Summary */}
-                            <div className="bg-[var(--input-bg)] rounded-xl p-4 border border-[var(--glass-border)] space-y-2 text-sm">
-                              <div className="flex justify-between text-[var(--text-secondary)]">
-                                <span>Booth Price</span>
-                                <span className="font-mono text-[var(--text-primary)]">${pricingDetails.subtotal}</span>
-                              </div>
-                              {pricingDetails.discount > 0 && (
-                                <div className="flex justify-between text-emerald-400">
-                                  <span>Discount Applied</span>
-                                  <span className="font-mono">-${pricingDetails.discount}</span>
-                                </div>
-                              )}
-                              
-                              {paymentTerms === "DEPOSIT" ? (
-                                <>
-                                  <div className="flex justify-between text-indigo-400 font-bold border-t border-[var(--glass-border)] pt-2">
-                                    <span>25% Deposit Due</span>
-                                    <span className="font-mono">${pricingDetails.depositAmount}</span>
-                                  </div>
-                                  <div className="flex justify-between text-slate-500 text-xs">
-                                    <span>Remaining Balance Invoice</span>
-                                    <span className="font-mono">${pricingDetails.remainingBalance}</span>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="flex justify-between font-bold text-[var(--text-primary)] pt-2 border-t border-[var(--glass-border)] text-base">
-                                  <span>Total Amount Due</span>
-                                  <span className="font-mono text-sky-400">${pricingDetails.total}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Rent Booth Submit Button */}
-                            <button
-                              type="button"
-                              onClick={startCheckout}
-                              disabled={!selectedBooth}
-                              className="w-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-3 rounded-xl shadow-lg shadow-sky-500/10 hover:shadow-sky-500/20 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 font-outfit"
-                            >
-                              <Store className="w-4 h-4" />
-                              Rent Booth Spot (Launch SAGA)
-                            </button>
-
-                            <p className="text-[10px] text-slate-500 text-center flex items-center justify-center gap-1">
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                              Secured with RSA-256 JWT & Optional Two-Factor Auth
-                            </p>
-
-                          </div>
-
-                        </div>
-                      )}
-
-                    </div>
-                  )}
-
-                  {/* Sponsorship Opportunities Card */}
+                  {/* Business Portal Actions Card */}
                   <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 relative overflow-hidden">
-                    <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl"></div>
+                    <div className="absolute -top-16 -right-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl"></div>
                     
-                    <div className="flex items-center gap-2 relative z-10">
-                      <Award className="w-5 h-5 text-amber-400" />
-                      <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Sponsorship Tiers</h4>
+                    <div className="flex items-center gap-2 relative z-10 font-sans">
+                      <Settings className="w-5 h-5 text-sky-400" />
+                      <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Business Portals &amp; Bookings</h4>
                     </div>
-                    <p className="text-[11px] text-[var(--text-secondary)]">Support this event to showcase your brand. Click "Show Interest" to apply.</p>
+                    <p className="text-[11px] text-[var(--text-secondary)]">Access professional operations, lease booths, book venues, or apply for brand sponsorship packages.</p>
+                    
+                    <div className="space-y-3 relative z-10 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCurrentUserRole("VENDOR");
+                          setActiveTab("vendor");
+                          addSagaLog("Auth-Service", `Mock login: Switched role to [VENDOR] via Book Booth action.`, "info");
+                        }}
+                        className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold py-2.5 rounded-xl shadow shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
+                      >
+                        <Store className="w-4 h-4" />
+                        Book Booth
+                      </button>
 
-                    <div className="space-y-3">
-                      {!selectedEvent.sponsorPackages || selectedEvent.sponsorPackages.length === 0 ? (
-                        <p className="text-[10px] text-[var(--text-secondary)] italic text-center py-2">No sponsorship packages listed for this event.</p>
-                      ) : (
-                        selectedEvent.sponsorPackages.map(pkg => (
-                          <div key={pkg.id} className="p-3 bg-white/5 rounded-xl border border-white/5 space-y-2 text-xs">
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-[var(--text-primary)]">{pkg.name}</span>
-                              <span className="font-mono text-amber-400 font-bold">${pkg.price}</span>
-                            </div>
-                            <ul className="text-[10px] text-[var(--text-secondary)] list-disc pl-4 space-y-1">
-                              {pkg.benefits.map((b, idx) => (
-                                  <li key={idx}>{b}</li>
-                              ))}
-                            </ul>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSponsorSelectedEvent(selectedEvent);
-                                setSponsorSelectedPackage(pkg);
-                                setSponsorCompanyName("");
-                                setSponsorContactName("");
-                                setSponsorEmail("");
-                                setSponsorPhone("");
-                                setSponsorOtpInput("");
-                                setSponsorOtpError(null);
-                                setSponsorStep("form");
-                                setShowSponsorModal(true);
-                              }}
-                              className="w-full bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 text-amber-400 text-[10px] py-1.5 px-3 rounded-lg font-bold transition flex items-center justify-center gap-1.5 font-outfit"
-                            >
-                              Show Interest
-                            </button>
-                          </div>
-                        ))
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCurrentUserRole("ORGANIZER");
+                          setActiveTab("venues");
+                          addSagaLog("Auth-Service", `Mock login: Switched role to [ORGANIZER] via Book Venue action.`, "info");
+                        }}
+                        className="w-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-2.5 rounded-xl shadow shadow-sky-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        Book Venue
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCurrentUserRole("SPONSOR");
+                          setActiveTab("sponsor");
+                          addSagaLog("Auth-Service", `Mock login: Switched role to [SPONSOR] via Sponsor Event action.`, "info");
+                        }}
+                        className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white font-bold py-2.5 rounded-xl shadow shadow-purple-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
+                      >
+                        <Award className="w-4 h-4" />
+                        Sponsor Event
+                      </button>
                     </div>
                   </div>
 
@@ -4117,136 +4357,8 @@ export default function Home() {
               )}
             </div>
 
-            {/* Vendor Profile settings & 2FA */}
+            {/* Attendee Security Settings & 2FA */}
             <div className="space-y-6">
-              
-              {/* Vendor Profile Update Console (if verified vendor) */}
-              {activeVendorProfile && (
-                <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
-                      <UserCheck className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-[var(--text-primary)]">Vendor Business Profile</h3>
-                      <p className="text-xs text-[var(--text-secondary)] mt-1">Manage your registered details, business category, and contact info.</p>
-                    </div>
-                  </div>
-
-                  {isEditingVendorProfile ? (
-                    <form onSubmit={handleUpdateVendorProfile} className="space-y-3 pt-2">
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-slate-500 font-semibold block uppercase">Business Name</span>
-                        <code className="text-xs font-mono font-bold text-[var(--text-primary)] block py-1.5 px-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg">
-                          {activeVendorProfile.businessName}
-                        </code>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Owner Name *</label>
-                        <input
-                          type="text"
-                          required
-                          value={editOwnerName}
-                          onChange={(e) => setEditOwnerName(e.target.value)}
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Business Category</label>
-                        <select
-                          value={editCategory}
-                          onChange={(e) => setEditCategory(e.target.value)}
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
-                        >
-                          <option value="Mexican">Mexican Food</option>
-                          <option value="Italian">Italian Food</option>
-                          <option value="Desserts">Desserts</option>
-                          <option value="Beverages">Beverages</option>
-                          <option value="Tech Showcase">Tech Showcase</option>
-                          <option value="Crafts">Crafts & Art</option>
-                          <option value="Apparel">Apparel</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Email Address *</label>
-                        <input
-                          type="email"
-                          required
-                          value={editEmail}
-                          onChange={(e) => setEditEmail(e.target.value)}
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Phone Number *</label>
-                        <input
-                          type="tel"
-                          required
-                          value={editPhone}
-                          onChange={(e) => setEditPhone(e.target.value)}
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="flex gap-2 pt-2">
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingVendorProfile(false)}
-                          className="w-1/2 bg-[var(--glass-bg)] border border-[var(--glass-border)] text-xs font-semibold py-2 rounded-xl text-[var(--text-secondary)] hover:border-[var(--text-secondary)]/50"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          className="w-1/2 bg-sky-500 hover:bg-sky-400 text-white font-bold py-2 rounded-xl text-xs transition"
-                        >
-                          Save Changes
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <div className="space-y-4 pt-2">
-                      <div className="p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl space-y-2.5 text-xs text-[var(--text-primary)]">
-                        <div>
-                          <span className="text-[9px] text-slate-500 uppercase tracking-widest font-mono">Business Name</span>
-                          <p className="font-bold text-sm">{activeVendorProfile.businessName}</p>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-slate-500 uppercase tracking-widest font-mono">Owner / Representative</span>
-                          <p>{activeVendorProfile.ownerName}</p>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-slate-500 uppercase tracking-widest font-mono">Contact Info</span>
-                          <p>{activeVendorProfile.email} | {activeVendorProfile.phone}</p>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-slate-500 uppercase tracking-widest font-mono">Business Category</span>
-                          <p>{activeVendorProfile.category}</p>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsEditingVendorProfile(true);
-                          setEditOwnerName(activeVendorProfile.ownerName);
-                          setEditEmail(activeVendorProfile.email);
-                          setEditPhone(activeVendorProfile.phone);
-                          setEditCategory(activeVendorProfile.category);
-                        }}
-                        className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-slate-500/50 py-2.5 rounded-xl text-xs font-semibold text-[var(--text-primary)] flex items-center justify-center gap-1.5 transition-colors"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        Edit Business Profile
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* 2FA Setup */}
               <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-6">
@@ -4304,967 +4416,1302 @@ export default function Home() {
 
         {/* TAB 3: ADMIN PANEL (CRUD & METRICS) */}
         {activeTab === "admin" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            
-            {/* Create Event & Allocate Booths Form */}
-            <div className="lg:col-span-2 space-y-8">
-              
-              {/* Event Creator Form */}
-              <div className="space-y-4">
-                <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
-                  <Calendar className="w-6 h-6 text-sky-400" />
-                  Add Event Creator
-                </h2>
-                <form onSubmit={handleCreateEvent} className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Event Title *</label>
-                      <input
-                        type="text"
-                        required
-                        value={newEventTitle}
-                        onChange={(e) => setNewEventTitle(e.target.value)}
-                        placeholder="e.g. Docker & K8s Bootcamp"
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full"
-                      />
+          <div className="space-y-6">
+            {/* Sub-tab Navigation */}
+            <div className="flex flex-wrap gap-2 border-b border-[var(--glass-border)] pb-4">
+              <button
+                type="button"
+                onClick={() => setAdminSubTab("directory")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${
+                  adminSubTab === "directory" 
+                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" 
+                    : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
+              >
+                👤 User Directory &amp; Moderation
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminSubTab("events")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${
+                  adminSubTab === "events" 
+                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" 
+                    : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
+              >
+                🎪 Events &amp; Slots Config
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminSubTab("financials")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${
+                  adminSubTab === "financials" 
+                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" 
+                    : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
+              >
+                💵 Financials Console
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminSubTab("reports")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${
+                  adminSubTab === "reports" 
+                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" 
+                    : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
+              >
+                📊 SVG Reports
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminSubTab("reviews")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${
+                  adminSubTab === "reviews" 
+                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" 
+                    : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
+              >
+                🛡️ Moderator Console
+              </button>
+            </div>
+
+            {/* Sub-tab 1: Directory & Moderation */}
+            {adminSubTab === "directory" && (
+              <div className="space-y-6 animate-[fadeIn_0.25s_ease-out]">
+                {/* Global Settings Configuration Card */}
+                <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20 text-sky-400">
+                      <Settings className="w-6 h-6" />
                     </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Category</label>
-                      <select
-                        value={newEventCategory}
-                        onChange={(e) => setNewEventCategory(e.target.value)}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
-                      >
-                        <option value="Technology">Technology</option>
-                        <option value="Music">Music</option>
-                        <option value="Food & Drink">Food & Drink</option>
-                        <option value="Sports">Sports</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-[var(--text-secondary)] font-bold">Description</label>
-                    <textarea
-                      rows={2}
-                      value={newEventDesc}
-                      onChange={(e) => setNewEventDesc(e.target.value)}
-                      placeholder="Provide detailed description of domain agenda and ticketing policies."
-                      className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full resize-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Location *</label>
-                      <input
-                        type="text"
-                        required
-                        value={newEventLoc}
-                        onChange={(e) => setNewEventLoc(e.target.value)}
-                        placeholder="e.g. Seattle, WA"
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Date *</label>
-                      <input
-                        type="text"
-                        required
-                        value={newEventDate}
-                        onChange={(e) => setNewEventDate(e.target.value)}
-                        placeholder="e.g. Sept 15, 2026"
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Price ($) *</label>
-                      <input
-                        type="number"
-                        required
-                        min={0}
-                        value={newEventPrice}
-                        onChange={(e) => setNewEventPrice(e.target.value)}
-                        placeholder="e.g. 99"
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/55 focus:outline-none focus:border-sky-500 w-full font-mono"
-                      />
+                    <div>
+                      <h3 className="text-lg font-bold text-[var(--text-primary)] font-outfit">Global Security Settings</h3>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">Configure security rules and authentication requirements for EventSnap.</p>
                     </div>
                   </div>
-
-                  {/* Collapsible Advanced Geolocation Data for Event */}
-                  <div className="space-y-2">
+                  
+                  <div className="p-4 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <span className="text-sm font-bold text-[var(--text-primary)] block">System-Wide OTP Verification</span>
+                      <span className="text-xs text-[var(--text-secondary)]">When disabled, OTP checks during registration and review submission are skipped.</span>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setShowEventGeoOverrides(!showEventGeoOverrides)}
-                      className="text-xs text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 focus:outline-none"
+                      onClick={() => {
+                        const newVal = !otpVerificationEnabled;
+                        setOtpVerificationEnabled(newVal);
+                        localStorage.setItem("otpVerificationEnabled", String(newVal));
+                        addSagaLog("System-Config", `OTP Verification is now ${newVal ? "ENABLED" : "DISABLED"} globally.`, newVal ? "success" : "info");
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all-custom border cursor-pointer ${
+                        otpVerificationEnabled
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                          : "bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20"
+                      }`}
                     >
-                      {showEventGeoOverrides ? "▼ Hide" : "▶ Show"} Advanced Geolocation & Address Details (Auto-Parsed)
+                      {otpVerificationEnabled ? "OTP Required" : "OTP Bypassed"}
                     </button>
-
-                    {showEventGeoOverrides && (
-                      <div className="p-4 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl space-y-3">
-                        <p className="text-[10px] text-[var(--text-secondary)] italic">
-                          Values automatically parsed from location text or selected venue. Modify manually for precision.
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] text-[var(--text-secondary)] font-bold">City</label>
-                            <input
-                              type="text"
-                              value={newEventCity}
-                              onChange={(e) => setNewEventCity(e.target.value)}
-                              placeholder="e.g. San Francisco"
-                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] text-[var(--text-secondary)] font-bold">State</label>
-                            <select
-                              value={newEventState}
-                              onChange={(e) => setNewEventState(e.target.value)}
-                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500 font-sans"
-                            >
-                              {US_STATES.map((st) => (
-                                <option key={st.code} value={st.code} className="bg-[var(--node-bg)] text-[var(--text-primary)]">
-                                  {st.code ? `${st.code} - ${st.name}` : st.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] text-[var(--text-secondary)] font-bold">Zipcode</label>
-                            <input
-                              type="text"
-                              value={newEventZipcode}
-                              onChange={(e) => setNewEventZipcode(e.target.value)}
-                              placeholder="e.g. 94103"
-                              maxLength={5}
-                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500 font-mono"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] text-[var(--text-secondary)] font-bold">Latitude</label>
-                            <input
-                              type="number"
-                              step="0.000001"
-                              value={newEventLat}
-                              onChange={(e) => setNewEventLat(e.target.value)}
-                              placeholder="e.g. 37.7749"
-                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500 font-mono"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] text-[var(--text-secondary)] font-bold">Longitude</label>
-                            <input
-                              type="number"
-                              step="0.000001"
-                              value={newEventLng}
-                              onChange={(e) => setNewEventLng(e.target.value)}
-                              placeholder="e.g. -122.4194"
-                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500 font-mono"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Select Available Venue</label>
-                      <select
-                        value={adminSelectedVenueId}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setAdminSelectedVenueId(val);
-                          if (val !== "none") {
-                            const vn = venues.find(v => v.id === val);
-                            if (vn) {
-                              setNewEventLoc(`${vn.name}, ${vn.location}`);
-                            }
-                          }
-                        }}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
-                      >
-                        <option value="none">None (Use Manual Location)</option>
-                        {venues.map(v => (
-                          <option key={v.id} value={v.id}>
-                            {v.name} (Max Cap: {v.capacity} pax, Parking: {v.parkingSpots} spots)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {adminSelectedVenueId !== "none" && (() => {
-                      const vn = venues.find(v => v.id === adminSelectedVenueId);
-                      if (!vn) return null;
-                      
-                      const inventory = parseInt(newEventInventory) || 0;
-                      const capMatches = vn.capacity >= inventory;
-                      
-                      const normalizeDate = (d: string) => {
-                        try {
-                          const parsed = new Date(d);
-                          if (!isNaN(parsed.getTime())) {
-                            const y = parsed.getFullYear();
-                            const m = String(parsed.getMonth() + 1).padStart(2, "0");
-                            const day = String(parsed.getDate()).padStart(2, "0");
-                            return `${y}-${m}-${day}`;
-                          }
-                        } catch (err) {}
-                        return d.trim().toLowerCase();
-                      };
-                      const normalizedEventDate = normalizeDate(newEventDate);
-                      const isAvailableOnDate = vn.availableDates.some(availDate => normalizeDate(availDate) === normalizedEventDate);
-                      const isAlreadyBooked = venueBookings.some(b => b.venueId === vn.id && normalizeDate(b.date) === normalizedEventDate && b.status === "CONFIRMED");
-
-                      return (
-                        <div className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl p-3 text-[11px] space-y-1.5 flex flex-col justify-center">
-                          <span className="font-bold text-[var(--text-primary)]">Venue Allocation Checks:</span>
-                          <div className="flex items-center gap-1">
-                            <span className={capMatches ? "text-emerald-500 font-bold" : "text-amber-500 font-bold"}>
-                              {capMatches ? "✓ Capacity matches" : "⚠ Inventory exceeds capacity"}
-                            </span>
-                            <span className="text-[var(--text-secondary)]">({vn.capacity} pax limit vs {inventory || 0} tickets)</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className={isAvailableOnDate && !isAlreadyBooked ? "text-emerald-500 font-bold" : "text-rose-500 font-bold"}>
-                              {isAlreadyBooked ? "✗ Already booked" : isAvailableOnDate ? "✓ Available on date" : "✗ Not available on date"}
-                            </span>
-                            <span className="text-[var(--text-secondary)]">({newEventDate || "No date set"})</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1 text-[9px] text-[var(--text-secondary)] mt-1">
-                            <span>Services: {vn.services.join(", ") || "None"}</span>
-                          </div>
+                <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                  <h3 className="text-lg font-bold text-[var(--text-primary)] font-outfit">Registered User Profiles</h3>
+                  <p className="text-xs text-[var(--text-secondary)]">Manage registered platform credentials and suspend/activate accounts.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[350px] overflow-y-auto pr-1">
+                    {users.map(u => (
+                      <div key={u.id} className="p-3.5 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl flex justify-between items-center text-xs">
+                        <div>
+                          <p className="font-bold text-[var(--text-primary)] text-sm">{u.name}</p>
+                          <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">{u.email} • Role: <strong className="text-sky-400 font-mono">{u.role}</strong></p>
                         </div>
-                      );
-                    })()}
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded uppercase ${u.status === "ACTIVE" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"}`}>
+                            {u.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSuspension(u.id)}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-bold transition ${
+                              u.status === "ACTIVE" 
+                                ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20" 
+                                : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
+                            }`}
+                          >
+                            {u.status === "ACTIVE" ? "Suspend" : "Activate"}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                </div>
 
-                  {/* Sponsorship Packages Section */}
-                  <div className="glass rounded-xl p-4 border border-[var(--glass-border)] space-y-4">
-                    <div>
-                      <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Event Sponsor Packages</h4>
-                      <p className="text-[10px] text-[var(--text-secondary)]">Configure sponsorship tiers with specific pricing and benefits to invite brand sponsorships.</p>
-                    </div>
-
-                    {/* Package Add Form */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end bg-white/5 p-3 rounded-lg border border-white/5">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-[var(--text-secondary)] block uppercase">Tier/Package Name</label>
-                        <input
-                          type="text"
-                          value={newPackageName}
-                          onChange={(e) => setNewPackageName(e.target.value)}
-                          placeholder="e.g. Platinum Tier"
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-[var(--text-secondary)] block uppercase">Price ($)</label>
-                        <input
-                          type="number"
-                          value={newPackagePrice}
-                          onChange={(e) => setNewPackagePrice(e.target.value)}
-                          placeholder="e.g. 5000"
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500 font-mono"
-                        />
-                      </div>
-                      <div className="space-y-1 md:col-span-3">
-                        <label className="text-[9px] font-bold text-[var(--text-secondary)] block uppercase">Benefits (comma-separated list)</label>
-                        <input
-                          type="text"
-                          value={newPackageBenefits}
-                          onChange={(e) => setNewPackageBenefits(e.target.value)}
-                          placeholder="e.g. Logo on website, 5 VIP Passes, Logo on Stage Banner"
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                        />
-                      </div>
-                      <div className="md:col-span-3 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={handleAddSponsorPackage}
-                          className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-1.5 px-4 rounded-lg text-[10px] transition font-outfit"
-                        >
-                          + Add Tier Package
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Current Packages List */}
-                    <div className="space-y-2">
-                      {orgEventSponsorPackages.length === 0 ? (
-                        <p className="text-[10px] text-[var(--text-secondary)] italic text-center py-2">No sponsorship tiers configured yet. Add at least one above to display sponsorship opportunities.</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Pending Events Moderation Queue */}
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                    <h4 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider">Pending Event Approval Queue</h4>
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                      {events.filter(e => e.moderationStatus === "PENDING").length === 0 ? (
+                        <p className="text-xs text-[var(--text-secondary)] italic text-center py-8">No pending event catalog listings.</p>
                       ) : (
-                        orgEventSponsorPackages.map(pkg => (
-                          <div key={pkg.id} className="flex justify-between items-center bg-[var(--input-bg)] p-2 rounded-lg border border-[var(--input-border)] text-xs">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-[var(--text-primary)]">{pkg.name}</span>
-                                <span className="text-sky-400 font-mono font-bold">${pkg.price}</span>
+                        events.filter(e => e.moderationStatus === "PENDING").map(ev => (
+                          <div key={ev.id} className="p-3.5 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl space-y-3">
+                            <div className="flex justify-between items-start gap-2">
+                              <div>
+                                <h5 className="font-bold text-sm text-[var(--text-primary)]">{ev.title}</h5>
+                                <p className="text-[10px] text-[var(--text-secondary)] font-mono mt-0.5">Date: {ev.date} | Ticket Price: ${ev.price}</p>
                               </div>
-                              <p className="text-[9px] text-[var(--text-secondary)] mt-0.5">Benefits: {pkg.benefits.join(", ")}</p>
+                              <span className="text-[9px] bg-amber-500/10 text-amber-400 font-bold px-1.5 py-0.5 rounded border border-amber-500/25 uppercase font-mono">Pending</span>
                             </div>
-                            <button
-                              type="button"
-                              onClick={(e) => handleRemoveSponsorPackage(pkg.id, e)}
-                              className="text-rose-400 hover:text-rose-300 text-[10px] py-1 px-2 hover:bg-rose-500/10 rounded-lg transition"
-                            >
-                              Remove
-                            </button>
+                            <p className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed">{ev.description}</p>
+                            <div className="flex justify-end gap-2 text-[10px] pt-1">
+                              <button
+                                type="button"
+                                onClick={() => rejectEvent(ev.id)}
+                                className="px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg font-bold transition"
+                              >
+                                Reject
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => approveEvent(ev.id)}
+                                className="px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg font-bold transition"
+                              >
+                                Approve
+                              </button>
+                            </div>
                           </div>
                         ))
                       )}
                     </div>
                   </div>
 
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Inventory Stock *</label>
-                      <input
-                        type="number"
-                        required
-                        min={1}
-                        value={newEventInventory}
-                        onChange={(e) => setNewEventInventory(e.target.value)}
-                        placeholder="e.g. 250"
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/55 focus:outline-none focus:border-sky-500 w-full font-mono"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2 pb-3">
-                      <input
-                        type="checkbox"
-                        id="newEventIsSponsored"
-                        checked={newEventIsSponsored}
-                        onChange={(e) => setNewEventIsSponsored(e.target.checked)}
-                        className="w-4.5 h-4.5 rounded border-[var(--input-border)] bg-[var(--input-bg)] text-amber-500 focus:ring-amber-500 focus:ring-opacity-25 accent-amber-500 cursor-pointer"
-                      />
-                      <label htmlFor="newEventIsSponsored" className="text-xs text-[var(--text-primary)] font-bold cursor-pointer select-none flex items-center gap-1 hover:text-amber-400 transition-colors">
-                        ★ Sponsored Event
-                      </label>
-                    </div>
-
-                    <div>
-                      <button
-                        type="submit"
-                        className="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-2.5 rounded-xl transition shadow shadow-sky-955 flex items-center justify-center gap-2 text-sm font-outfit"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Create Event
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              </div>
-
-              {/* Event Management CRUD List (Delete features) */}
-              <div className="space-y-4 pt-4 border-t border-[var(--glass-border)]">
-                <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
-                  <Layers className="w-6 h-6 text-sky-400" />
-                  Manage Existing Events (CRUD)
-                </h2>
-                <div className="glass rounded-2xl border border-[var(--glass-border)] p-4 space-y-2 max-h-56 overflow-y-auto">
-                  {events.map(ev => {
-                    const availableStock = ev.ticketInventory - ev.ticketsSold;
-                    return (
-                      <div key={ev.id} className="p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl flex justify-between items-center text-xs">
-                        <div>
-                          <p className="font-bold text-[var(--text-primary)] text-sm">{ev.title}</p>
-                          <div className="text-[10px] text-[var(--text-secondary)] mt-1 flex gap-3">
-                            <span>Date: {ev.date}</span>
-                            <span>•</span>
-                            <span>Price: ${ev.price}</span>
-                            <span>•</span>
-                            <span>Tickets Available: {availableStock} / {ev.ticketInventory}</span>
-                          </div>
-                        </div>
-                        
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteEvent(ev.id)}
-                          className="p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors"
-                          title="Delete Event"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Booth Allocation Form */}
-              <div className="space-y-4 pt-4 border-t border-[var(--glass-border)]">
-                <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
-                  <Store className="w-6 h-6 text-sky-400" />
-                  Add Booth & Catering service slots
-                </h2>
-                <form onSubmit={handleCreateBooth} className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold font-mono">Assign to Event *</label>
-                      <select
-                        value={adminBoothEventId}
-                        onChange={(e) => setAdminBoothEventId(e.target.value)}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
-                      >
-                        {events.map(ev => (
-                          <option key={ev.id} value={ev.id}>{ev.title}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Slot Name/Number *</label>
-                      <input
-                        type="text"
-                        required
-                        value={adminBoothName}
-                        onChange={(e) => setAdminBoothName(e.target.value)}
-                        placeholder="e.g. Catering Spot #FT5, Booth #303"
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full"
-                      />
-                    </div>
-
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Slot Type</label>
-                      <select
-                        value={adminBoothType}
-                        onChange={(e) => {
-                          const type = e.target.value as "STANDARD" | "FOOD_TRUCK";
-                          setAdminBoothType(type);
-                          if (type === "FOOD_TRUCK") {
-                            setAdminBoothCategory("Mexican");
-                          } else {
-                            setAdminBoothCategory("Tech Showcase");
-                          }
-                        }}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
-                      >
-                        <option value="STANDARD">Standard Booth</option>
-                        <option value="FOOD_TRUCK">Food Truck Spot</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Catering Category / Category</label>
-                      {adminBoothType === "FOOD_TRUCK" ? (
-                        <select
-                          value={adminBoothCategory}
-                          onChange={(e) => setAdminBoothCategory(e.target.value)}
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
-                        >
-                          <option value="Mexican">Mexican</option>
-                          <option value="Italian">Italian</option>
-                          <option value="Asian">Asian</option>
-                          <option value="Desserts">Desserts</option>
-                          <option value="Beverages">Beverages</option>
-                        </select>
+                  {/* Pending Vendor Registrations Queue */}
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                    <h4 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider">Pending Vendor Approval Queue</h4>
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                      {vendorProfiles.filter(v => v.status === "PENDING").length === 0 ? (
+                        <p className="text-xs text-[var(--text-secondary)] italic text-center py-8">No pending vendor lease verifications.</p>
                       ) : (
-                        <input
-                          type="text"
-                          required
-                          value={adminBoothCategory}
-                          onChange={(e) => setAdminBoothCategory(e.target.value)}
-                          placeholder="e.g. Crafts, Tech, Apparel"
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full"
-                        />
-                      )}
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Rental Price ($) *</label>
-                      <input
-                        type="number"
-                        required
-                        min={0}
-                        value={adminBoothPrice}
-                        onChange={(e) => setAdminBoothPrice(e.target.value)}
-                        placeholder="e.g. 500"
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/55 focus:outline-none focus:border-sky-500 w-full font-mono"
-                      />
-                    </div>
-
-                  </div>
-
-                  <div className="flex justify-end pt-2">
-                    <button
-                      type="submit"
-                      className="bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-bold py-2.5 px-6 rounded-xl transition shadow shadow-sky-955 flex items-center gap-2 text-sm font-outfit"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Allocate Slot
-                    </button>
-                  </div>
-                  
-                </form>
-              </div>
-
-              {/* Vendor Profiles Directory */}
-              <div className="space-y-4 pt-4 border-t border-[var(--glass-border)]">
-                <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
-                  <UserCheck className="w-6 h-6 text-sky-400" />
-                  Registered Vendor Profiles
-                </h2>
-                <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 overflow-hidden">
-                  <div className="max-h-48 overflow-y-auto space-y-2 text-xs">
-                    {vendorProfiles.map(profile => (
-                      <div key={profile.id} className="flex justify-between items-center border-b border-white/5 pb-2.5">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-[var(--text-primary)] text-sm">{profile.businessName}</span>
-                            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded font-mono uppercase font-bold">
-                              {profile.status}
-                            </span>
-                            {(() => {
-                              const rating = getAverageRating("VENDOR", profile.id);
-                              const count = getReviewCount("VENDOR", profile.id);
-                              return rating > 0 ? (
-                                <div className="flex items-center gap-1 ml-2">
-                                  {renderStars(rating)}
-                                  <span className="text-[10px] text-[var(--text-secondary)]">({count})</span>
-                                </div>
-                              ) : (
-                                <span className="text-[9px] text-[var(--text-secondary)]/70 italic ml-2">No reviews</span>
-                              );
-                            })()}
-                          </div>
-                          <div className="text-[10px] text-[var(--text-secondary)] mt-1 flex gap-3">
-                            <span>Owner: {profile.ownerName}</span>
-                            <span>•</span>
-                            <span>Phone: {profile.phone}</span>
-                            <span>•</span>
-                            <span>Category: {profile.category}</span>
-                          </div>
-                        </div>
-                        <span className="text-[var(--text-secondary)] font-mono text-[10px]">{profile.id}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Reviews & Ratings Moderator Dashboard */}
-              <div className="space-y-4 pt-4 border-t border-[var(--glass-border)]">
-                <div className="flex justify-between items-center flex-wrap gap-2">
-                  <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
-                    <Shield className="w-6 h-6 text-sky-400" />
-                    Reviews & Ratings Moderator
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={runAbusiveScanChecker}
-                    className="bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/25 font-bold py-1.5 px-4 rounded-xl text-xs flex items-center gap-1.5 transition font-outfit"
-                  >
-                    <ShieldAlert className="w-4 h-4" />
-                    Scan Abusive Reviews
-                  </button>
-                </div>
-
-                <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4">
-                  {/* Filters Bar */}
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Entity Type</label>
-                      <select
-                        value={adminReviewTypeFilter}
-                        onChange={(e) => setAdminReviewTypeFilter(e.target.value)}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none"
-                      >
-                        <option value="ALL">All Entities</option>
-                        <option value="EVENT">Events</option>
-                        <option value="VENUE">Venues</option>
-                        <option value="VENDOR">Vendors</option>
-                        <option value="SITE">Site Experience</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Status</label>
-                      <select
-                        value={adminReviewStatusFilter}
-                        onChange={(e) => setAdminReviewStatusFilter(e.target.value)}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none"
-                      >
-                        <option value="ALL">All Statuses</option>
-                        <option value="APPROVED">Approved</option>
-                        <option value="FLAGGED_ABUSIVE">Flagged Abusive</option>
-                        <option value="HIDDEN">Hidden</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Rating</label>
-                      <select
-                        value={adminReviewRatingFilter}
-                        onChange={(e) => setAdminReviewRatingFilter(e.target.value)}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none"
-                      >
-                        <option value="ALL">All Ratings</option>
-                        <option value="5">5 Stars</option>
-                        <option value="4">4 Stars</option>
-                        <option value="3">3 Stars</option>
-                        <option value="2">2 Stars</option>
-                        <option value="1">1 Star</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Search</label>
-                      <input
-                        type="text"
-                        value={adminReviewSearch}
-                        onChange={(e) => setAdminReviewSearch(e.target.value)}
-                        placeholder="Search author/comment..."
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Reviews Table/List */}
-                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                    {(() => {
-                      const filtered = reviews.filter(r => {
-                        const matchType = adminReviewTypeFilter === "ALL" || r.targetType === adminReviewTypeFilter;
-                        const matchStatus = adminReviewStatusFilter === "ALL" || r.status === adminReviewStatusFilter;
-                        const matchRating = adminReviewRatingFilter === "ALL" || r.rating.toString() === adminReviewRatingFilter;
-                        const query = adminReviewSearch.trim().toLowerCase();
-                        const matchQuery = !query || 
-                          r.authorName.toLowerCase().includes(query) || 
-                          r.targetName.toLowerCase().includes(query) ||
-                          r.comment.toLowerCase().includes(query);
-                        return matchType && matchStatus && matchRating && matchQuery;
-                      });
-
-                      if (filtered.length === 0) {
-                        return (
-                          <div className="text-center text-xs text-[var(--text-secondary)] py-12 border border-dashed border-[var(--glass-border)] rounded-xl bg-[var(--glass-bg)]">
-                            No reviews match the active filters.
-                          </div>
-                        );
-                      }
-
-                      return filtered.map(r => (
-                        <div key={r.id} className="p-4 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] space-y-3 text-xs">
-                          <div className="flex flex-wrap justify-between items-start gap-2">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-[var(--text-primary)] text-sm">{r.authorName}</span>
-                                <span className="text-[9px] text-slate-400 font-mono uppercase bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">
-                                  {r.authorRole}
-                                </span>
-                                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold border ${
-                                  r.status === "APPROVED" 
-                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25" 
-                                    : r.status === "FLAGGED_ABUSIVE" 
-                                      ? "bg-rose-500/10 text-rose-400 border-rose-500/25" 
-                                      : "bg-slate-500/10 text-slate-400 border-slate-500/25"
-                                }`}>
-                                  {r.status}
-                                </span>
+                        vendorProfiles.filter(v => v.status === "PENDING").map(vp => (
+                          <div key={vp.id} className="p-3.5 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl space-y-3">
+                            <div className="flex justify-between items-start gap-2">
+                              <div>
+                                <h5 className="font-bold text-sm text-[var(--text-primary)]">{vp.businessName}</h5>
+                                <p className="text-[10px] text-[var(--text-secondary)] font-mono mt-0.5">Owner: {vp.ownerName} | Cat: {vp.category}</p>
                               </div>
-                              <div className="text-[10px] text-[var(--text-secondary)] mt-1 flex flex-wrap gap-2 items-center">
-                                <span className="font-bold text-sky-400">{r.targetType}: {r.targetName}</span>
-                                <span>•</span>
-                                <span>{r.date}</span>
-                              </div>
+                              <span className="text-[9px] bg-amber-500/10 text-amber-400 font-bold px-1.5 py-0.5 rounded border border-amber-500/25 uppercase font-mono">Pending</span>
                             </div>
-                            <div className="flex items-center">
-                              {renderStars(r.rating)}
-                            </div>
-                          </div>
-
-                          <div className="p-3 rounded-lg bg-[var(--bg-primary)] border border-[var(--glass-border)]">
-                            {r.status === "FLAGGED_ABUSIVE" ? (
-                              <div className="space-y-1">
-                                <p className="text-[11px] text-rose-400 font-bold flex items-center gap-1">
-                                  <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
-                                  [FLAGGED ABUSIVE - Comment Content Hidden in Catalog]
-                                </p>
-                                <p className="text-[var(--text-secondary)] italic select-all opacity-60 font-mono line-through">{r.comment}</p>
-                              </div>
-                            ) : (
-                              <p className="text-[var(--text-secondary)] italic leading-relaxed">{r.comment}</p>
-                            )}
-                          </div>
-
-                          <div className="flex justify-end gap-2 pt-1">
-                            {r.status !== "APPROVED" && (
+                            <p className="text-xs text-[var(--text-secondary)]">Email: {vp.email} | Phone: {vp.phone}</p>
+                            <div className="flex justify-end gap-2 text-[10px] pt-1">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setReviews(prev => prev.map(item => item.id === r.id ? { ...item, status: "APPROVED" as const } : item));
-                                  addSagaLog("Moderator-Service", `Review by ${r.authorName} approved by admin.`, "success");
-                                }}
-                                className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 text-[10px] py-1 px-3 rounded-lg font-semibold transition"
+                                onClick={() => rejectVendor(vp.id)}
+                                className="px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg font-bold transition"
+                              >
+                                Reject
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => approveVendor(vp.id)}
+                                className="px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg font-bold transition"
                               >
                                 Approve
                               </button>
-                            )}
-                            {r.status !== "FLAGGED_ABUSIVE" && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setReviews(prev => prev.map(item => item.id === r.id ? { ...item, status: "FLAGGED_ABUSIVE" as const } : item));
-                                  addSagaLog("Moderator-Service", `Review by ${r.authorName} flagged as abusive by admin.`, "error");
-                                }}
-                                className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-[10px] py-1 px-3 rounded-lg font-semibold transition"
-                              >
-                                Flag Abusive
-                              </button>
-                            )}
-                            {r.status !== "HIDDEN" && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setReviews(prev => prev.map(item => item.id === r.id ? { ...item, status: "HIDDEN" as const } : item));
-                                  addSagaLog("Moderator-Service", `Review by ${r.authorName} hidden by admin.`, "info");
-                                }}
-                                className="bg-slate-500/10 hover:bg-slate-500/20 border border-slate-500/20 text-slate-400 text-[10px] py-1 px-3 rounded-lg font-semibold transition"
-                              >
-                                Hide
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setReviews(prev => prev.filter(item => item.id !== r.id));
-                                addSagaLog("Moderator-Service", `Review by ${r.authorName} deleted permanently.`, "info");
-                              }}
-                              className="bg-transparent hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 text-[10px] py-1 px-2 rounded-lg transition"
-                              title="Delete permanently"
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-tab 2: Events & Slots Config */}
+            {adminSubTab === "events" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-[fadeIn_0.25s_ease-out]">
+                {/* Forms Section */}
+                <div className="lg:col-span-2 space-y-8">
+                  {/* Event Creator Form */}
+                  <div className="space-y-4">
+                    <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
+                      <Calendar className="w-6 h-6 text-sky-400" />
+                      Add Event Creator
+                    </h2>
+                    <form onSubmit={handleCreateEvent} className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Event Title *</label>
+                          <input
+                            type="text"
+                            required
+                            value={newEventTitle}
+                            onChange={(e) => setNewEventTitle(e.target.value)}
+                            placeholder="e.g. Docker &amp; K8s Bootcamp"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Category</label>
+                          <select
+                            value={newEventCategory}
+                            onChange={(e) => setNewEventCategory(e.target.value)}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
+                          >
+                            <option value="Technology">Technology</option>
+                            <option value="Music">Music</option>
+                            <option value="Food &amp; Drink">Food &amp; Drink</option>
+                            <option value="Sports">Sports</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-[var(--text-secondary)] font-bold">Description</label>
+                        <textarea
+                          rows={2}
+                          value={newEventDesc}
+                          onChange={(e) => setNewEventDesc(e.target.value)}
+                          placeholder="Provide detailed description of domain agenda and ticketing policies."
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full resize-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Location *</label>
+                          <input
+                            type="text"
+                            required
+                            value={newEventLoc}
+                            onChange={(e) => setNewEventLoc(e.target.value)}
+                            placeholder="e.g. Seattle, WA"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Date *</label>
+                          <input
+                            type="text"
+                            required
+                            value={newEventDate}
+                            onChange={(e) => setNewEventDate(e.target.value)}
+                            placeholder="e.g. Sept 15, 2026"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Price ($) *</label>
+                          <input
+                            type="number"
+                            required
+                            min={0}
+                            value={newEventPrice}
+                            onChange={(e) => setNewEventPrice(e.target.value)}
+                            placeholder="e.g. 99"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/55 focus:outline-none focus:border-sky-500 w-full font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowEventGeoOverrides(!showEventGeoOverrides)}
+                          className="text-xs text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 focus:outline-none"
+                        >
+                          {showEventGeoOverrides ? "▼ Hide" : "▶ Show"} Advanced Geolocation &amp; Address Details (Auto-Parsed)
+                        </button>
+
+                        {showEventGeoOverrides && (
+                          <div className="p-4 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl space-y-3">
+                            <p className="text-[10px] text-[var(--text-secondary)] italic">
+                              Values automatically parsed from location text or selected venue. Modify manually for precision.
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] text-[var(--text-secondary)] font-bold">City</label>
+                                <input
+                                  type="text"
+                                  value={newEventCity}
+                                  onChange={(e) => setNewEventCity(e.target.value)}
+                                  placeholder="e.g. San Francisco"
+                                  className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] text-[var(--text-secondary)] font-bold">State</label>
+                                <input
+                                  type="text"
+                                  value={newEventState}
+                                  onChange={(e) => setNewEventState(e.target.value)}
+                                  placeholder="e.g. CA"
+                                  className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] text-[var(--text-secondary)] font-bold">Zipcode</label>
+                                <input
+                                  type="text"
+                                  value={newEventZipcode}
+                                  onChange={(e) => setNewEventZipcode(e.target.value)}
+                                  placeholder="e.g. 94103"
+                                  maxLength={5}
+                                  className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none font-mono"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] text-[var(--text-secondary)] font-bold">Latitude</label>
+                                <input
+                                  type="number"
+                                  step="0.000001"
+                                  value={newEventLat}
+                                  onChange={(e) => setNewEventLat(e.target.value)}
+                                  placeholder="e.g. 37.7749"
+                                  className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none font-mono"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] text-[var(--text-secondary)] font-bold">Longitude</label>
+                                <input
+                                  type="number"
+                                  step="0.000001"
+                                  value={newEventLng}
+                                  onChange={(e) => setNewEventLng(e.target.value)}
+                                  placeholder="e.g. -122.4194"
+                                  className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none font-mono"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Select Available Venue</label>
+                          <select
+                            value={adminSelectedVenueId}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setAdminSelectedVenueId(val);
+                              if (val !== "none") {
+                                const vn = venues.find(v => v.id === val);
+                                if (vn) {
+                                  setNewEventLoc(`${vn.name}, ${vn.location}`);
+                                }
+                              }
+                            }}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none w-full"
+                          >
+                            <option value="none">None (Use Manual Location)</option>
+                            {venues.map(v => (
+                              <option key={v.id} value={v.id}>
+                                {v.name} (Max Cap: {v.capacity} pax)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Inventory Stock *</label>
+                          <input
+                            type="number"
+                            required
+                            min={1}
+                            value={newEventInventory}
+                            onChange={(e) => setNewEventInventory(e.target.value)}
+                            placeholder="e.g. 250"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] w-full font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pb-1">
+                        <input
+                          type="checkbox"
+                          id="newEventIsSponsored"
+                          checked={newEventIsSponsored}
+                          onChange={(e) => setNewEventIsSponsored(e.target.checked)}
+                          className="w-4 h-4 rounded border-[var(--input-border)] bg-[var(--input-bg)] text-amber-500 accent-amber-500 cursor-pointer"
+                        />
+                        <label htmlFor="newEventIsSponsored" className="text-xs text-[var(--text-primary)] font-bold cursor-pointer select-none">
+                          ★ Highlight as Sponsored Event
+                        </label>
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="submit"
+                          className="bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-bold py-2.5 px-6 rounded-xl transition shadow shadow-sky-955 flex items-center gap-2 text-sm font-outfit"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Create Approved Event
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Booth Allocation Form */}
+                  <div className="space-y-4">
+                    <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
+                      <Store className="w-6 h-6 text-sky-400" />
+                      Add Booth &amp; Catering service slots
+                    </h2>
+                    <form onSubmit={handleCreateBooth} className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold font-mono">Assign to Event *</label>
+                          <select
+                            value={adminBoothEventId}
+                            onChange={(e) => setAdminBoothEventId(e.target.value)}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] w-full"
+                          >
+                            {events.map(ev => (
+                              <option key={ev.id} value={ev.id}>{ev.title}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Slot Name/Number *</label>
+                          <input
+                            type="text"
+                            required
+                            value={adminBoothName}
+                            onChange={(e) => setAdminBoothName(e.target.value)}
+                            placeholder="e.g. Catering Spot #FT5, Booth #303"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none w-full"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Slot Type</label>
+                          <select
+                            value={adminBoothType}
+                            onChange={(e) => {
+                              const type = e.target.value as "STANDARD" | "FOOD_TRUCK";
+                              setAdminBoothType(type);
+                              if (type === "FOOD_TRUCK") {
+                                setAdminBoothCategory("Mexican");
+                              } else {
+                                setAdminBoothCategory("Tech Showcase");
+                              }
+                            }}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] w-full"
+                          >
+                            <option value="STANDARD">Standard Booth</option>
+                            <option value="FOOD_TRUCK">Food Truck Spot</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Category</label>
+                          {adminBoothType === "FOOD_TRUCK" ? (
+                            <select
+                              value={adminBoothCategory}
+                              onChange={(e) => setAdminBoothCategory(e.target.value)}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] w-full"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                              <option value="Mexican">Mexican</option>
+                              <option value="Italian">Italian</option>
+                              <option value="Asian">Asian</option>
+                              <option value="Desserts">Desserts</option>
+                              <option value="Beverages">Beverages</option>
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              required
+                              value={adminBoothCategory}
+                              onChange={(e) => setAdminBoothCategory(e.target.value)}
+                              placeholder="e.g. Crafts, Tech Showcase"
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] w-full"
+                            />
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Rental Price ($) *</label>
+                          <input
+                            type="number"
+                            required
+                            min={0}
+                            value={adminBoothPrice}
+                            onChange={(e) => setAdminBoothPrice(e.target.value)}
+                            placeholder="e.g. 500"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] w-full font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="submit"
+                          className="bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-bold py-2.5 px-6 rounded-xl transition shadow flex items-center gap-2 text-sm font-outfit"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Allocate Slot
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Right Lists Column */}
+                <div className="space-y-6">
+                  {/* Event CRUD List */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider">Catalog Listings CRUD</h3>
+                    <div className="glass rounded-2xl border border-[var(--glass-border)] p-4 space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                      {events.map(ev => (
+                        <div key={ev.id} className="p-3 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl flex justify-between items-center text-xs">
+                          <div>
+                            <p className="font-bold text-[var(--text-primary)] text-sm">{ev.title}</p>
+                            <p className="text-[10px] text-slate-500 mt-1 font-mono">Date: {ev.date} | Available: {ev.ticketInventory - ev.ticketsSold}/{ev.ticketInventory}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEvent(ev.id)}
+                            className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Registered Vendors Directory */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider">Registered Vendors</h3>
+                    <div className="glass rounded-2xl border border-[var(--glass-border)] p-4 space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                      {vendorProfiles.map(vp => (
+                        <div key={vp.id} className="p-3 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl flex justify-between items-center text-xs">
+                          <div>
+                            <span className="font-bold text-[var(--text-primary)] text-sm block">{vp.businessName}</span>
+                            <span className="text-[10px] text-slate-500 block mt-0.5">Owner: {vp.ownerName} | Status: <strong className="text-sky-400">{vp.status}</strong></span>
+                          </div>
+                          <span className="text-[9px] text-[var(--text-secondary)] font-mono">{vp.id}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-tab 3: Financials Console */}
+            {adminSubTab === "financials" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-[fadeIn_0.25s_ease-out]">
+                {/* Platform Fee Control and Calculations */}
+                <div className="lg:col-span-1 space-y-6">
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-5">
+                    <div>
+                      <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Platform Fee Control</h4>
+                      <p className="text-[10px] text-[var(--text-secondary)] mt-1">Adjust platform service cut commission rate below.</p>
+                    </div>
+                    
+                    <div className="space-y-3 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-[var(--text-secondary)]">Fee Percentage cut</span>
+                        <span className="text-sky-400 font-bold font-mono text-sm">{platformFeePercentage}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={30}
+                        value={platformFeePercentage}
+                        onChange={(e) => setPlatformFeePercentage(parseInt(e.target.value))}
+                        className="w-full accent-sky-500 cursor-pointer h-1.5 bg-slate-700 rounded-lg appearance-none"
+                      />
+                      <p className="text-[9px] text-slate-500">Service fee cut calculations apply immediately to all gross ticket orders.</p>
+                    </div>
+
+                    {(() => {
+                      const grossTicketSales = orders.filter(o => o.status === "PAID" && o.type === "TICKET").reduce((sum, o) => sum + o.totalAmount, 0);
+                      const grossBoothSales = orders.filter(o => o.status === "PAID" && o.type === "BOOTH").reduce((sum, o) => sum + (o.amountPaid ?? o.totalAmount), 0);
+                      const grossSponsorSales = orders.filter(o => o.status === "PAID" && o.type === "SPONSOR").reduce((sum, o) => sum + o.totalAmount, 0);
+                      const platformFeeRevenue = grossTicketSales * platformFeePercentage / 100;
+                      const grossTotal = grossTicketSales + grossBoothSales + grossSponsorSales;
+                      
+                      return (
+                        <div className="space-y-3.5 pt-4 border-t border-[var(--glass-border)] text-xs text-[var(--text-primary)] font-sans">
+                          <div className="flex justify-between">
+                            <span className="text-[var(--text-secondary)]">Ticket Volume (Gross):</span>
+                            <span className="font-bold font-mono">${grossTicketSales}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[var(--text-secondary)]">Booth Volume (Gross):</span>
+                            <span className="font-bold font-mono">${grossBoothSales}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[var(--text-secondary)]">Sponsor Volume (Gross):</span>
+                            <span className="font-bold font-mono">${grossSponsorSales}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-[var(--glass-border)] pt-2 font-bold text-sky-400">
+                            <span>Platform Revenue cut:</span>
+                            <span className="font-mono">${Math.round(platformFeeRevenue)}</span>
+                          </div>
+                          <div className="flex justify-between font-bold text-emerald-400">
+                            <span>Gross Platform Volume:</span>
+                            <span className="font-mono">${Math.round(grossTotal)}</span>
                           </div>
                         </div>
-                      ));
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Organizer Payouts and Payout Releases */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Payouts release console */}
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4 text-xs font-sans">
+                    <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Release Organizer Payouts</h4>
+                    <p className="text-[10px] text-[var(--text-secondary)]">Disburse organizer funds from ticket sales (net platform cut fee) and rental/sponsor space lease bookings.</p>
+                    
+                    <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
+                      {events.map(ev => {
+                        const org = users.find(u => u.id === ev.organizerId) || { name: "Organizer", email: "" };
+                        
+                        const eventTicketsGross = orders
+                          .filter(o => o.eventId === ev.id && o.type === "TICKET" && o.status === "PAID")
+                          .reduce((sum, o) => sum + o.totalAmount, 0);
+                          
+                        const eventBoothGross = orders
+                          .filter(o => o.eventId === ev.id && o.type === "BOOTH" && o.status === "PAID")
+                          .reduce((sum, o) => sum + (o.amountPaid ?? o.totalAmount), 0);
+                          
+                        const eventSponsorGross = orders
+                          .filter(o => o.eventId === ev.id && o.type === "SPONSOR" && o.status === "PAID")
+                          .reduce((sum, o) => sum + o.totalAmount, 0);
+                          
+                        const eventTicketsNet = eventTicketsGross * (1 - platformFeePercentage / 100);
+                        const totalPayout = eventTicketsNet + eventBoothGross + eventSponsorGross;
+                        
+                        const isReleased = releasedPayouts.includes(ev.id);
+                        
+                        return (
+                          <div key={ev.id} className="p-3 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl flex justify-between items-center text-xs">
+                            <div>
+                              <span className="font-bold text-[var(--text-primary)] text-sm block">{ev.title}</span>
+                              <span className="text-[10px] text-slate-500 block mt-0.5">Org: {org.name} | Tickets Net: ${Math.round(eventTicketsNet)} | Booths: ${eventBoothGross} | Sponsor: ${eventSponsorGross}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded uppercase ${isReleased ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"}`}>
+                                {isReleased ? "Released" : "Pending"}
+                              </span>
+                              {!isReleased && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReleasedPayouts(prev => [...prev, ev.id]);
+                                    addSagaLog("Admin-Service", `Released payout of $${Math.round(totalPayout)} to organizer for event: ${ev.title}`, "success");
+                                    addNotification("Payout Released", `A payout of $${Math.round(totalPayout)} has been dispatched for "${ev.title}".`, "ORGANIZER");
+                                    alert("Payout released successfully!");
+                                  }}
+                                  className="px-2.5 py-1 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded text-[10px] transition"
+                                >
+                                  Release Payout
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Master Transactions log */}
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4 text-xs font-sans">
+                    <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Master Transactions log</h4>
+                    <p className="text-[10px] text-[var(--text-secondary)]">Master transaction database logs. Refund actions trigger compensating rollback saga transaction commands.</p>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-[11px]">
+                        <thead>
+                          <tr className="border-b border-[var(--glass-border)] text-[var(--text-secondary)] font-bold font-mono">
+                            <th className="py-2">Order ID</th>
+                            <th className="py-2">Type</th>
+                            <th className="py-2">Details</th>
+                            <th className="py-2">Gross</th>
+                            <th className="py-2">Status</th>
+                            <th className="py-2 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orders.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="text-center py-8 text-slate-500 italic">No payments processed in sandbox.</td>
+                            </tr>
+                          ) : (
+                            orders.map(o => (
+                              <tr key={o.id} className="border-b border-[var(--glass-border)] last:border-0 hover:bg-white/2 transition">
+                                <td className="py-2.5 font-mono font-bold text-[var(--text-primary)]">{o.id}</td>
+                                <td className="py-2.5">
+                                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${
+                                    o.type === "TICKET" 
+                                      ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" 
+                                      : o.type === "BOOTH" 
+                                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" 
+                                        : "bg-teal-500/10 text-teal-400 border border-teal-500/20"
+                                  }`}>
+                                    {o.type}
+                                  </span>
+                                </td>
+                                <td className="py-2.5">
+                                  <p className="font-bold text-[var(--text-primary)]">{o.eventTitle}</p>
+                                  <p className="text-[9px] text-[var(--text-secondary)] mt-0.5">{o.ticketClass || o.boothName || "Sponsorship Package"}</p>
+                                </td>
+                                <td className="py-2.5 font-mono font-bold text-[var(--text-primary)]">${o.totalAmount}</td>
+                                <td className="py-2.5">
+                                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${
+                                    o.status === "PAID" 
+                                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                                      : o.status === "CANCELLED" || o.status === "FAILED"
+                                        ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" 
+                                        : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                  }`}>
+                                    {o.status}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 text-right">
+                                  {o.status === "PAID" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRefundTransaction(o)}
+                                      className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded font-semibold text-[9px] transition"
+                                    >
+                                      Refund
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-tab 4: Reports & Charts */}
+            {adminSubTab === "reports" && (
+              <div className="space-y-6 animate-[fadeIn_0.25s_ease-out]">
+                {(() => {
+                  const grossTicketSales = orders.filter(o => o.status === "PAID" && o.type === "TICKET").reduce((sum, o) => sum + o.totalAmount, 0);
+                  const grossBoothSales = orders.filter(o => o.status === "PAID" && o.type === "BOOTH").reduce((sum, o) => sum + (o.amountPaid ?? o.totalAmount), 0);
+                  const grossSponsorSales = orders.filter(o => o.status === "PAID" && o.type === "SPONSOR").reduce((sum, o) => sum + o.totalAmount, 0);
+                  
+                  const getCategorySales = (cat: string) => orders
+                    .filter(o => o.status === "PAID" && events.find(e => e.id === o.eventId)?.category === cat)
+                    .reduce((sum, o) => sum + o.totalAmount, 0);
+                    
+                  const techSales = getCategorySales("Technology");
+                  const musicSales = getCategorySales("Music");
+                  const foodSales = getCategorySales("Food & Drink");
+                  const sportsSales = getCategorySales("Sports");
+                  const gamingSales = getCategorySales("Gaming");
+                  
+                  const maxVal = Math.max(techSales, musicSales, foodSales, sportsSales, gamingSales, 100);
+                  
+                  const attendeeCount = users.filter(u => u.role === "ATTENDEE").length;
+                  const organizerCount = users.filter(u => u.role === "ORGANIZER").length;
+                  const vendorCount = users.filter(u => u.role === "VENDOR").length;
+                  const sponsorCount = users.filter(u => u.role === "SPONSOR").length;
+                  const adminCount = users.filter(u => u.role === "ADMIN").length;
+                  const totalUsers = users.length || 1;
+                  
+                  return (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                      
+                      {/* Category Revenue SVG Bar Chart */}
+                      <div className="lg:col-span-2 glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                        <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Revenue By Category Dashboard</h4>
+                        <div className="w-full flex justify-center py-4 bg-slate-900/20 rounded-xl border border-[var(--glass-border)]">
+                          <svg width="480" height="240" viewBox="0 0 480 240" className="w-full max-w-[480px] font-sans">
+                            <line x1="50" y1="30" x2="450" y2="30" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="4,4" />
+                            <line x1="50" y1="80" x2="450" y2="80" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="4,4" />
+                            <line x1="50" y1="130" x2="450" y2="130" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="4,4" />
+                            <line x1="50" y1="180" x2="450" y2="180" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="4,4" />
+                            
+                            <rect x="70" y={180 - (techSales / maxVal) * 140} width="40" height={(techSales / maxVal) * 140} rx="4" fill="url(#blue-grad)" />
+                            <text x="90" y="200" fill="var(--text-secondary)" fontSize="9" textAnchor="middle" fontWeight="bold">Tech</text>
+                            <text x="90" y={170 - (techSales / maxVal) * 140} fill="var(--text-primary)" fontSize="10" fontWeight="bold" textAnchor="middle">${techSales}</text>
+                            
+                            <rect x="150" y={180 - (musicSales / maxVal) * 140} width="40" height={(musicSales / maxVal) * 140} rx="4" fill="url(#pink-grad)" />
+                            <text x="170" y="200" fill="var(--text-secondary)" fontSize="9" textAnchor="middle" fontWeight="bold">Music</text>
+                            <text x="170" y={170 - (musicSales / maxVal) * 140} fill="var(--text-primary)" fontSize="10" fontWeight="bold" textAnchor="middle">${musicSales}</text>
+                            
+                            <rect x="230" y={180 - (foodSales / maxVal) * 140} width="40" height={(foodSales / maxVal) * 140} rx="4" fill="url(#green-grad)" />
+                            <text x="250" y="200" fill="var(--text-secondary)" fontSize="9" textAnchor="middle" fontWeight="bold">Food/Wine</text>
+                            <text x="250" y={170 - (foodSales / maxVal) * 140} fill="var(--text-primary)" fontSize="10" fontWeight="bold" textAnchor="middle">${foodSales}</text>
+                            
+                            <rect x="310" y={180 - (sportsSales / maxVal) * 140} width="40" height={(sportsSales / maxVal) * 140} rx="4" fill="url(#purple-grad)" />
+                            <text x="330" y="200" fill="var(--text-secondary)" fontSize="9" textAnchor="middle" fontWeight="bold">Sports</text>
+                            <text x="330" y={170 - (sportsSales / maxVal) * 140} fill="var(--text-primary)" fontSize="10" fontWeight="bold" textAnchor="middle">${sportsSales}</text>
+                            
+                            <rect x="390" y={180 - (gamingSales / maxVal) * 140} width="40" height={(gamingSales / maxVal) * 140} rx="4" fill="url(#orange-grad)" />
+                            <text x="410" y="200" fill="var(--text-secondary)" fontSize="9" textAnchor="middle" fontWeight="bold">Gaming</text>
+                            <text x="410" y={170 - (gamingSales / maxVal) * 140} fill="var(--text-primary)" fontSize="10" fontWeight="bold" textAnchor="middle">${gamingSales}</text>
+                            
+                            <line x1="50" y1="180" x2="450" y2="180" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
+                            
+                            <defs>
+                              <linearGradient id="blue-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor="#38bdf8" />
+                                <stop offset="100%" stopColor="#0369a1" />
+                              </linearGradient>
+                              <linearGradient id="pink-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor="#ec4899" />
+                                <stop offset="100%" stopColor="#be185d" />
+                              </linearGradient>
+                              <linearGradient id="green-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor="#10b981" />
+                                <stop offset="100%" stopColor="#047857" />
+                              </linearGradient>
+                              <linearGradient id="purple-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor="#8b5cf6" />
+                                <stop offset="100%" stopColor="#6d28d9" />
+                              </linearGradient>
+                              <linearGradient id="orange-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor="#f97316" />
+                                <stop offset="100%" stopColor="#c2410c" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                        </div>
+                      </div>
+
+                      {/* SVG Role breakdown Donut chart */}
+                      <div className="lg:col-span-1 glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                        <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Role Breakdown Donut</h4>
+                        <div className="flex justify-center py-4 relative items-center">
+                          <svg width="180" height="180" viewBox="0 0 180 180" className="w-[180px] h-[180px]">
+                            {(() => {
+                              const aPct = attendeeCount / totalUsers;
+                              const oPct = organizerCount / totalUsers;
+                              const vPct = vendorCount / totalUsers;
+                              const sPct = sponsorCount / totalUsers;
+                              const adPct = adminCount / totalUsers;
+                              
+                              const circ = 377;
+                              const aLen = circ * aPct;
+                              const oLen = circ * oPct;
+                              const vLen = circ * vPct;
+                              const sLen = circ * sPct;
+                              const adLen = circ * adPct;
+                              
+                              return (
+                                <>
+                                  <circle cx="90" cy="90" r="60" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="20" />
+                                  
+                                  <circle cx="90" cy="90" r="60" fill="transparent" stroke="#38bdf8" strokeWidth="20"
+                                    strokeDasharray={`${aLen} ${circ - aLen}`}
+                                    strokeDashoffset="0"
+                                    transform="rotate(-90 90 90)"
+                                  />
+                                  <circle cx="90" cy="90" r="60" fill="transparent" stroke="#8b5cf6" strokeWidth="20"
+                                    strokeDasharray={`${oLen} ${circ - oLen}`}
+                                    strokeDashoffset={-aLen}
+                                    transform="rotate(-90 90 90)"
+                                  />
+                                  <circle cx="90" cy="90" r="60" fill="transparent" stroke="#fbbf24" strokeWidth="20"
+                                    strokeDasharray={`${vLen} ${circ - vLen}`}
+                                    strokeDashoffset={-(aLen + oLen)}
+                                    transform="rotate(-90 90 90)"
+                                  />
+                                  <circle cx="90" cy="90" r="60" fill="transparent" stroke="#ec4899" strokeWidth="20"
+                                    strokeDasharray={`${sLen} ${circ - sLen}`}
+                                    strokeDashoffset={-(aLen + oLen + vLen)}
+                                    transform="rotate(-90 90 90)"
+                                  />
+                                  <circle cx="90" cy="90" r="60" fill="transparent" stroke="#64748b" strokeWidth="20"
+                                    strokeDasharray={`${adLen} ${circ - adLen}`}
+                                    strokeDashoffset={-(aLen + oLen + vLen + sLen)}
+                                    transform="rotate(-90 90 90)"
+                                  />
+                                </>
+                              );
+                            })()}
+                          </svg>
+                          <div className="absolute text-center">
+                            <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider block">Total Users</span>
+                            <span className="text-xl font-bold text-[var(--text-primary)] font-mono">{users.length}</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[10px] pt-2 border-t border-[var(--glass-border)]">
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-sky-400"></span>
+                            <span className="text-[var(--text-secondary)]">Attendee ({attendeeCount})</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-purple-500"></span>
+                            <span className="text-[var(--text-secondary)]">Organizer ({organizerCount})</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-amber-400"></span>
+                            <span className="text-[var(--text-secondary)]">Vendor ({vendorCount})</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-pink-500"></span>
+                            <span className="text-[var(--text-secondary)]">Sponsor ({sponsorCount})</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-slate-500"></span>
+                            <span className="text-[var(--text-secondary)]">Admin ({adminCount})</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Ticket sales progress list */}
+                      <div className="lg:col-span-3 glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 text-xs font-sans">
+                        <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Event Attendance &amp; Occupancy Levels</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {events.map(ev => {
+                            const pct = ev.ticketInventory > 0 ? (ev.ticketsSold / ev.ticketInventory) * 100 : 0;
+                            return (
+                              <div key={ev.id} className="space-y-1.5">
+                                <div className="flex justify-between text-xs font-semibold">
+                                  <span className="text-[var(--text-primary)] truncate max-w-[200px]">{ev.title}</span>
+                                  <span className="text-sky-400 font-mono">{ev.ticketsSold}/{ev.ticketInventory} sold ({Math.round(pct)}%)</span>
+                                </div>
+                                <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-white/5">
+                                  <div className="bg-gradient-to-r from-sky-500 to-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Sub-tab 5: Reviews & Ratings moderator and Sponsorship interest */}
+            {adminSubTab === "reviews" && (
+              <div className="space-y-8 animate-[fadeIn_0.25s_ease-out]">
+                {/* Reviews & Ratings Moderator Dashboard */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center flex-wrap gap-2">
+                    <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
+                      <Shield className="w-6 h-6 text-sky-400" />
+                      Reviews &amp; Ratings Moderator
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={runAbusiveScanChecker}
+                      className="bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/25 font-bold py-1.5 px-4 rounded-xl text-xs flex items-center gap-1.5 transition font-outfit"
+                    >
+                      <ShieldAlert className="w-4 h-4" />
+                      Scan Abusive Reviews
+                    </button>
+                  </div>
+
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4">
+                    {/* Filters Bar */}
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Entity Type</label>
+                        <select
+                          value={adminReviewTypeFilter}
+                          onChange={(e) => setAdminReviewTypeFilter(e.target.value)}
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                        >
+                          <option value="ALL">All Entities</option>
+                          <option value="EVENT">Events</option>
+                          <option value="VENUE">Venues</option>
+                          <option value="VENDOR">Vendors</option>
+                          <option value="SITE">Site Experience</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Status</label>
+                        <select
+                          value={adminReviewStatusFilter}
+                          onChange={(e) => setAdminReviewStatusFilter(e.target.value)}
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                        >
+                          <option value="ALL">All Statuses</option>
+                          <option value="APPROVED">Approved</option>
+                          <option value="FLAGGED_ABUSIVE">Flagged Abusive</option>
+                          <option value="HIDDEN">Hidden</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Rating</label>
+                        <select
+                          value={adminReviewRatingFilter}
+                          onChange={(e) => setAdminReviewRatingFilter(e.target.value)}
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                        >
+                          <option value="ALL">All Ratings</option>
+                          <option value="5">5 Stars</option>
+                          <option value="4">4 Stars</option>
+                          <option value="3">3 Stars</option>
+                          <option value="2">2 Stars</option>
+                          <option value="1">1 Star</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Search</label>
+                        <input
+                          type="text"
+                          value={adminReviewSearch}
+                          onChange={(e) => setAdminReviewSearch(e.target.value)}
+                          placeholder="Search author/comment..."
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Reviews Table/List */}
+                    <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                      {(() => {
+                        const filtered = reviews.filter(r => {
+                          const matchType = adminReviewTypeFilter === "ALL" || r.targetType === adminReviewTypeFilter;
+                          const matchStatus = adminReviewStatusFilter === "ALL" || r.status === adminReviewStatusFilter;
+                          const matchRating = adminReviewRatingFilter === "ALL" || r.rating.toString() === adminReviewRatingFilter;
+                          const query = adminReviewSearch.trim().toLowerCase();
+                          const matchQuery = !query || 
+                            r.authorName.toLowerCase().includes(query) || 
+                            r.targetName.toLowerCase().includes(query) ||
+                            r.comment.toLowerCase().includes(query);
+                          return matchType && matchStatus && matchRating && matchQuery;
+                        });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="text-center text-xs text-[var(--text-secondary)] py-12 border border-dashed border-[var(--glass-border)] rounded-xl bg-[var(--glass-bg)]">
+                              No reviews match the active filters.
+                            </div>
+                          );
+                        }
+
+                        return filtered.map(r => (
+                          <div key={r.id} className="p-4 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] space-y-3 text-xs">
+                            <div className="flex flex-wrap justify-between items-start gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-[var(--text-primary)] text-sm">{r.authorName}</span>
+                                  <span className="text-[9px] text-slate-400 font-mono uppercase bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">
+                                    {r.authorRole}
+                                  </span>
+                                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold border ${
+                                    r.status === "APPROVED" 
+                                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25" 
+                                      : r.status === "FLAGGED_ABUSIVE" 
+                                        ? "bg-rose-500/10 text-rose-400 border-rose-500/25" 
+                                        : "bg-slate-500/10 text-slate-400 border-slate-500/25"
+                                  }`}>
+                                    {r.status}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-[var(--text-secondary)] mt-1 flex flex-wrap gap-2 items-center">
+                                  <span className="font-bold text-sky-400">{r.targetType}: {r.targetName}</span>
+                                  <span>•</span>
+                                  <span>{r.date}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center">
+                                {renderStars(r.rating)}
+                              </div>
+                            </div>
+
+                            <div className="p-3 rounded-lg bg-[var(--bg-primary)] border border-[var(--glass-border)]">
+                              {r.status === "FLAGGED_ABUSIVE" ? (
+                                <div className="space-y-1">
+                                  <p className="text-[11px] text-rose-400 font-bold flex items-center gap-1">
+                                    <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
+                                    [FLAGGED ABUSIVE - Comment Content Hidden in Catalog]
+                                  </p>
+                                  <p className="text-[var(--text-secondary)] italic select-all opacity-60 font-mono line-through">{r.comment}</p>
+                                </div>
+                              ) : (
+                                <p className="text-[var(--text-secondary)] italic leading-relaxed">{r.comment}</p>
+                              )}
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-1">
+                              {r.status !== "APPROVED" && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReviews(prev => prev.map(item => item.id === r.id ? { ...item, status: "APPROVED" as const } : item));
+                                    addSagaLog("Moderator-Service", `Review by ${r.authorName} approved by admin.`, "success");
+                                  }}
+                                  className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 text-[10px] py-1 px-3 rounded-lg font-semibold transition"
+                                >
+                                  Approve
+                                </button>
+                              )}
+                              {r.status !== "FLAGGED_ABUSIVE" && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReviews(prev => prev.map(item => item.id === r.id ? { ...item, status: "FLAGGED_ABUSIVE" as const } : item));
+                                    addSagaLog("Moderator-Service", `Review by ${r.authorName} flagged as abusive by admin.`, "error");
+                                  }}
+                                  className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-[10px] py-1 px-3 rounded-lg font-semibold transition"
+                                >
+                                  Flag Abusive
+                                </button>
+                              )}
+                              {r.status !== "HIDDEN" && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReviews(prev => prev.map(item => item.id === r.id ? { ...item, status: "HIDDEN" as const } : item));
+                                    addSagaLog("Moderator-Service", `Review by ${r.authorName} hidden by admin.`, "info");
+                                  }}
+                                  className="bg-slate-500/10 hover:bg-slate-500/20 border border-slate-500/20 text-slate-400 text-[10px] py-1 px-3 rounded-lg font-semibold transition"
+                                >
+                                  Hide
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReviews(prev => prev.filter(item => item.id !== r.id));
+                                  addSagaLog("Moderator-Service", `Review by ${r.authorName} deleted permanently.`, "info");
+                                }}
+                                className="bg-transparent hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 text-[10px] py-1 px-2 rounded-lg transition"
+                                title="Delete permanently"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sponsorship Interest Console */}
+                <div className="space-y-4 pt-4 border-t border-[var(--glass-border)]">
+                  <div className="flex justify-between items-center flex-wrap gap-2">
+                    <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
+                      <Award className="w-6 h-6 text-amber-400" />
+                      Sponsorship Interest Console
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
+                        {sponsorInterests.length} Total Applications
+                      </span>
+                      {sponsorInterests.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm("Clear all sponsorship interest records?")) {
+                              setSponsorInterests([]);
+                              addSagaLog("Admin-Service", "All sponsorship interest records cleared by admin.", "info");
+                            }
+                          }}
+                          className="bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 font-bold py-1.5 px-3 rounded-xl text-[10px] flex items-center gap-1 transition"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Clear All
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-5">
+                    {sponsorInterests.length === 0 ? (
+                      <div className="text-center py-8 space-y-2">
+                        <Award className="w-10 h-10 text-amber-400/30 mx-auto" />
+                        <p className="text-[var(--text-secondary)] text-sm font-medium">No sponsorship interest submitted yet.</p>
+                        <p className="text-[10px] text-[var(--text-secondary)]/60">Sponsors can apply from the Event Catalog sidebar.</p>
+                      </div>
+                    ) : (() => {
+                      const grouped: Record<string, SponsorInterest[]> = {};
+                      sponsorInterests.forEach(si => {
+                        if (!grouped[si.eventId]) grouped[si.eventId] = [];
+                        grouped[si.eventId].push(si);
+                      });
+                      return (
+                        <div className="space-y-6">
+                          {Object.entries(grouped).map(([evId, interests]) => {
+                            const evTitle = interests[0].eventTitle;
+                            return (
+                              <div key={evId} className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-[var(--text-primary)] truncate max-w-[240px]">{evTitle}</span>
+                                    <span className="text-[9px] text-amber-400 font-mono bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold">
+                                      {interests.length} {interests.length === 1 ? "applicant" : "applicants"}
+                                    </span>
+                                  </div>
+                                  <span className="text-[9px] font-mono text-[var(--text-secondary)]">{evId}</span>
+                                </div>
+                                <div className="rounded-xl overflow-hidden border border-[var(--glass-border)]">
+                                  <table className="w-full text-[10px]">
+                                    <thead>
+                                      <tr className="bg-[var(--glass-bg)] border-b border-[var(--glass-border)]">
+                                        <th className="text-left px-3 py-2 text-[var(--text-secondary)] font-bold uppercase tracking-wider">Company</th>
+                                        <th className="text-left px-3 py-2 text-[var(--text-secondary)] font-bold uppercase tracking-wider">Contact</th>
+                                        <th className="text-left px-3 py-2 text-[var(--text-secondary)] font-bold uppercase tracking-wider">Package</th>
+                                        <th className="text-left px-3 py-2 text-[var(--text-secondary)] font-bold uppercase tracking-wider">Email</th>
+                                        <th className="px-3 py-2"></th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {interests.map(si => (
+                                        <tr key={si.id} className="border-b border-[var(--glass-border)] last:border-0 hover:bg-white/2 transition">
+                                          <td className="px-3 py-2.5 font-bold text-[var(--text-primary)]">{si.companyName}</td>
+                                          <td className="px-3 py-2.5 text-[var(--text-secondary)]">{si.contactName}</td>
+                                          <td className="px-3 py-2.5">
+                                            <span className="text-amber-400 font-bold font-mono">{si.packageName}</span>
+                                            <span className="text-[var(--text-secondary)] ml-1">(${si.packagePrice})</span>
+                                          </td>
+                                          <td className="px-3 py-2.5 text-sky-400">{si.email}</td>
+                                          <td className="px-3 py-2.5 text-right">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setSponsorInterests(prev => prev.filter(x => x.id !== si.id));
+                                                addSagaLog("Admin-Service", `Sponsorship interest from ${si.companyName} removed by admin.`, "info");
+                                              }}
+                                              className="text-slate-500 hover:text-rose-400 transition"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
                     })()}
                   </div>
                 </div>
               </div>
-
-              {/* ===== SPONSORSHIP INTEREST DASHBOARD ===== */}
-              <div className="space-y-4 pt-4 border-t border-[var(--glass-border)]">
-                <div className="flex justify-between items-center flex-wrap gap-2">
-                  <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
-                    <Award className="w-6 h-6 text-amber-400" />
-                    Sponsorship Interest Console
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
-                      {sponsorInterests.length} Total Applications
-                    </span>
-                    {sponsorInterests.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (window.confirm("Clear all sponsorship interest records?")) {
-                            setSponsorInterests([]);
-                            addSagaLog("Admin-Service", "All sponsorship interest records cleared by admin.", "info");
-                          }
-                        }}
-                        className="bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 font-bold py-1.5 px-3 rounded-xl text-[10px] flex items-center gap-1 transition"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Clear All
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-5">
-                  {sponsorInterests.length === 0 ? (
-                    <div className="text-center py-8 space-y-2">
-                      <Award className="w-10 h-10 text-amber-400/30 mx-auto" />
-                      <p className="text-[var(--text-secondary)] text-sm font-medium">No sponsorship interest submitted yet.</p>
-                      <p className="text-[10px] text-[var(--text-secondary)]/60">Sponsors can apply from the Event Catalog sidebar.</p>
-                    </div>
-                  ) : (() => {
-                    // Group by event
-                    const grouped: Record<string, SponsorInterest[]> = {};
-                    sponsorInterests.forEach(si => {
-                      if (!grouped[si.eventId]) grouped[si.eventId] = [];
-                      grouped[si.eventId].push(si);
-                    });
-                    return (
-                      <div className="space-y-6">
-                        {Object.entries(grouped).map(([evId, interests]) => {
-                          const evTitle = interests[0].eventTitle;
-                          return (
-                            <div key={evId} className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-[var(--text-primary)] truncate max-w-[240px]">{evTitle}</span>
-                                  <span className="text-[9px] text-amber-400 font-mono bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold">
-                                    {interests.length} {interests.length === 1 ? "applicant" : "applicants"}
-                                  </span>
-                                </div>
-                                <span className="text-[9px] font-mono text-[var(--text-secondary)]">{evId}</span>
-                              </div>
-                              <div className="rounded-xl overflow-hidden border border-[var(--glass-border)]">
-                                <table className="w-full text-[10px]">
-                                  <thead>
-                                    <tr className="bg-[var(--glass-bg)] border-b border-[var(--glass-border)]">
-                                      <th className="text-left px-3 py-2 text-[var(--text-secondary)] font-bold uppercase tracking-wider">Company</th>
-                                      <th className="text-left px-3 py-2 text-[var(--text-secondary)] font-bold uppercase tracking-wider">Contact</th>
-                                      <th className="text-left px-3 py-2 text-[var(--text-secondary)] font-bold uppercase tracking-wider">Package</th>
-                                      <th className="text-left px-3 py-2 text-[var(--text-secondary)] font-bold uppercase tracking-wider">Email</th>
-                                      <th className="text-left px-3 py-2 text-[var(--text-secondary)] font-bold uppercase tracking-wider">Phone</th>
-                                      <th className="text-left px-3 py-2 text-[var(--text-secondary)] font-bold uppercase tracking-wider">Status</th>
-                                      <th className="px-3 py-2"></th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {interests.map(si => (
-                                      <tr key={si.id} className="border-b border-[var(--glass-border)] last:border-0 hover:bg-white/2 transition">
-                                        <td className="px-3 py-2.5 font-bold text-[var(--text-primary)]">{si.companyName}</td>
-                                        <td className="px-3 py-2.5 text-[var(--text-secondary)]">{si.contactName}</td>
-                                        <td className="px-3 py-2.5">
-                                          <span className="text-amber-400 font-bold font-mono">{si.packageName}</span>
-                                          <span className="text-[var(--text-secondary)] ml-1">(${si.packagePrice})</span>
-                                        </td>
-                                        <td className="px-3 py-2.5 text-sky-400">{si.email}</td>
-                                        <td className="px-3 py-2.5 text-[var(--text-secondary)]">{si.phone}</td>
-                                        <td className="px-3 py-2.5">
-                                          <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold font-mono px-1.5 py-0.5 rounded uppercase text-[9px]">
-                                            Verified
-                                          </span>
-                                        </td>
-                                        <td className="px-3 py-2.5">
-                                          <button
-                                            type="button"
-                                            title="Remove record"
-                                            onClick={() => {
-                                              setSponsorInterests(prev => prev.filter(x => x.id !== si.id));
-                                              addSagaLog("Admin-Service", `Sponsorship interest from ${si.companyName} removed by admin.`, "info");
-                                            }}
-                                            className="text-slate-500 hover:text-rose-400 transition"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                          </button>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-              {/* ===== END SPONSORSHIP INTEREST DASHBOARD ===== */}
-
-            </div>
-
-            {/* Metrics Sidebar */}
-            <div className="space-y-6">
-              <h2 className="text-3xl font-bold font-display text-[var(--text-primary)] font-outfit">System Metrics</h2>
-              
-              <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-6">
-                
-                {/* Total Stats */}
-                <div className="space-y-3">
-                  <span className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest font-mono">Revenue breakdown</span>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-[var(--glass-bg)] p-4 rounded-xl border border-[var(--glass-border)]">
-                      <span className="text-[10px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Ticket Revenue</span>
-                      <span className="text-xl font-bold text-sky-400 font-mono mt-1 block">
-                        ${orders.filter(o => o.status === "PAID" && o.type === "TICKET").reduce((acc, curr) => acc + curr.totalAmount, 0)}
-                      </span>
-                    </div>
-                    <div className="bg-[var(--glass-bg)] p-4 rounded-xl border border-[var(--glass-border)]">
-                      <span className="text-[10px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Booth Revenue</span>
-                      <span className="text-xl font-bold text-amber-400 font-mono mt-1 block">
-                        ${orders.filter(o => o.status === "PAID" && o.type === "BOOTH").reduce((acc, curr) => acc + (curr.amountPaid ?? curr.totalAmount), 0)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="bg-[var(--glass-bg)] p-4 rounded-xl border border-[var(--glass-border)] flex justify-between items-center">
-                    <span className="text-xs text-[var(--text-secondary)] font-bold">Total Gross Volume</span>
-                    <span className="text-2xl font-bold text-emerald-400 font-mono">
-                      ${orders.filter(o => o.status === "PAID").reduce((acc, curr) => acc + (acc = (curr.amountPaid ?? curr.totalAmount)), 0)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* SAGA Failures rate */}
-                <div className="bg-[var(--glass-bg)] p-4 rounded-xl border border-[var(--glass-border)] space-y-2">
-                  <div className="flex justify-between items-center text-[10px] text-[var(--text-secondary)] uppercase tracking-widest font-mono">
-                    <span>Saga Compensation Rate</span>
-                    <span className="font-bold text-rose-400">
-                      {orders.length > 0 
-                        ? `${Math.round((orders.filter(o => o.status === "FAILED").length / orders.length) * 100)}%` 
-                        : "0%"}
-                    </span>
-                  </div>
-                  <div className="w-full bg-[var(--glass-border)] h-2 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-rose-500" 
-                      style={{ 
-                        width: orders.length > 0 
-                          ? `${(orders.filter(o => o.status === "FAILED").length / orders.length) * 100}%` 
-                          : "0%" 
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Booth occupancy levels */}
-                <div className="space-y-3 pt-2">
-                  <h4 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-widest font-mono">Event Booth Allocations</h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
-                    {booths.filter(b => b.eventId === selectedEvent?.id).map(booth => (
-                      <div key={booth.id} className="flex items-center justify-between border-b border-[var(--glass-border)] pb-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`h-2 w-2 rounded-full ${booth.status === "SOLD" ? "bg-rose-500" : booth.status === "RESERVED" ? "bg-amber-500" : "bg-emerald-500"}`}></span>
-                          <span className="text-[var(--text-primary)] font-medium">{booth.name}</span>
-                        </div>
-                        <span className="text-[var(--text-secondary)] font-mono font-bold">
-                          {booth.status === "SOLD" ? "Occupied" : booth.status === "RESERVED" ? "Reserved" : "Available"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Promo Codes Inventory */}
-                <div className="space-y-3 pt-2 border-t border-[var(--glass-border)]">
-                  <h4 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-widest font-mono">Promo Code Analytics</h4>
-                  <div className="space-y-2">
-                    {promoCodes.map(promo => (
-                      <div key={promo.code} className="flex items-center justify-between text-xs border-b border-white/5 pb-2">
-                        <div>
-                          <span className="font-mono text-[var(--text-primary)] font-bold">{promo.code}</span>
-                          <span className="text-[10px] text-slate-400 ml-2">({promo.description})</span>
-                        </div>
-                        <span className="text-[var(--text-secondary)] font-mono">{promo.usageCount} / {promo.usageLimit} used</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
+            )}
           </div>
         )}
 
@@ -5641,7 +6088,7 @@ export default function Home() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <label className="text-xs text-[var(--text-secondary)] font-bold">Event Date *</label>
                         <input
@@ -5653,32 +6100,126 @@ export default function Home() {
                         />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Price ($) *</label>
-                        <input
-                          type="number"
-                          required
-                          min={0}
-                          value={newEventPrice}
-                          onChange={(e) => setNewEventPrice(e.target.value)}
-                          placeholder="e.g. 49"
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Inventory *</label>
-                        <input
-                          type="number"
-                          required
-                          min={10}
-                          value={newEventInventory}
-                          onChange={(e) => setNewEventInventory(e.target.value)}
-                          placeholder="e.g. 500"
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono"
-                        />
+                      <div className="bg-[var(--glass-bg)] rounded-xl p-3 border border-[var(--glass-border)] flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-[var(--text-primary)] block">Enable Multiple Ticket Tiers?</span>
+                          <span className="text-[9px] text-[var(--text-secondary)]">Configure Early Bird, GA, and VIP.</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setEnableTiers(!enableTiers)}
+                          className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${
+                            enableTiers ? "bg-sky-500" : "bg-slate-700"
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                              enableTiers ? "translate-x-5" : "translate-x-1"
+                            }`}
+                          />
+                        </button>
                       </div>
                     </div>
+
+                    {!enableTiers ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Price ($) *</label>
+                          <input
+                            type="number"
+                            required={!enableTiers}
+                            min={0}
+                            value={newEventPrice}
+                            onChange={(e) => setNewEventPrice(e.target.value)}
+                            placeholder="e.g. 49"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Inventory *</label>
+                          <input
+                            type="number"
+                            required={!enableTiers}
+                            min={10}
+                            value={newEventInventory}
+                            onChange={(e) => setNewEventInventory(e.target.value)}
+                            placeholder="e.g. 500"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl space-y-3 text-xs">
+                        <span className="text-[10px] text-sky-400 font-bold block font-mono">Ticket Tiers Configuration</span>
+                        
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Early Bird ($)</label>
+                            <input
+                              type="number"
+                              required={enableTiers}
+                              value={ebPrice}
+                              onChange={(e) => setEbPrice(e.target.value)}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">GA ($)</label>
+                            <input
+                              type="number"
+                              required={enableTiers}
+                              value={gaPriceForm}
+                              onChange={(e) => setGaPriceForm(e.target.value)}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">VIP ($)</label>
+                            <input
+                              type="number"
+                              required={enableTiers}
+                              value={vipPriceForm}
+                              onChange={(e) => setVipPriceForm(e.target.value)}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Early Bird Inv</label>
+                            <input
+                              type="number"
+                              required={enableTiers}
+                              value={ebInv}
+                              onChange={(e) => setEbInv(e.target.value)}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">GA Inv</label>
+                            <input
+                              type="number"
+                              required={enableTiers}
+                              value={gaInvForm}
+                              onChange={(e) => setGaInvForm(e.target.value)}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">VIP Inv</label>
+                            <input
+                              type="number"
+                              required={enableTiers}
+                              value={vipInvForm}
+                              onChange={(e) => setVipInvForm(e.target.value)}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
@@ -6027,6 +6568,188 @@ export default function Home() {
                     </div>
                   </div>
 
+                  {/* Metrics Grid */}
+                  {(() => {
+                    const orgEvents = events.filter(e => e.organizerId === activeOrganizerProfile.id);
+                    const orgEventIds = new Set(orgEvents.map(e => e.id));
+                    const totalListings = orgEvents.length;
+                    
+                    const ticketSales = orders
+                      .filter(o => o.type === "TICKET" && o.status === "PAID" && orgEventIds.has(o.eventId))
+                      .reduce((sum, o) => sum + o.totalAmount, 0);
+                      
+                    const totalTicketsSold = orgEvents.reduce((sum, e) => sum + e.ticketsSold, 0);
+                    
+                    const boothSales = orders
+                      .filter(o => o.type === "BOOTH" && o.status === "PAID" && orgEventIds.has(o.eventId))
+                      .reduce((sum, o) => sum + (o.amountPaid || 0), 0);
+                      
+                    const sponsorSales = orders
+                      .filter(o => o.type === "SPONSOR" && o.status === "PAID" && orgEventIds.has(o.eventId))
+                      .reduce((sum, o) => sum + o.totalAmount, 0);
+                      
+                    const netRevenue = (1 - platformFeePercentage / 100) * ticketSales + boothSales + sponsorSales;
+                    
+                    const pendingBoothAppsCount = boothApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId)).length;
+                    const pendingSponsorAppsCount = sponsorApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId)).length;
+                    const pendingAppsCount = pendingBoothAppsCount + pendingSponsorAppsCount;
+                    
+                    return (
+                      <div className="grid grid-cols-2 gap-3 text-xs font-sans">
+                        <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
+                          <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Listings</span>
+                          <span className="text-base font-bold text-sky-400 font-mono mt-0.5 block">{totalListings} events</span>
+                        </div>
+                        <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
+                          <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Tickets Sold</span>
+                          <span className="text-base font-bold text-indigo-400 font-mono mt-0.5 block">{totalTicketsSold} sold</span>
+                        </div>
+                        <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
+                          <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Net Revenue</span>
+                          <span className="text-base font-bold text-emerald-400 font-mono mt-0.5 block">${Math.round(netRevenue)}</span>
+                        </div>
+                        <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
+                          <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Pending Apps</span>
+                          <span className="text-base font-bold text-amber-400 font-mono mt-0.5 block">{pendingAppsCount} active</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Applications Manager */}
+                  {(() => {
+                    const orgEvents = events.filter(e => e.organizerId === activeOrganizerProfile.id);
+                    const orgEventIds = new Set(orgEvents.map(e => e.id));
+                    const pendingBoothApps = boothApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId));
+                    const pendingSponsorApps = sponsorApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId));
+                    
+                    if (pendingBoothApps.length === 0 && pendingSponsorApps.length === 0) return null;
+                    
+                    return (
+                      <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4 font-sans text-xs">
+                        <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">
+                          📥 Applications Manager
+                        </h4>
+                        
+                        {/* Pending Booths */}
+                        {pendingBoothApps.length > 0 && (
+                          <div className="space-y-2">
+                            <span className="text-[9px] text-[var(--text-secondary)] uppercase font-mono font-bold block border-b border-[var(--glass-border)] pb-1">Vendor Booth Requests</span>
+                            {pendingBoothApps.map(app => (
+                              <div key={app.id} className="p-2.5 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <span className="font-bold text-[var(--text-primary)]">{app.vendorName}</span>
+                                    <span className="text-[10px] text-slate-400 block mt-0.5">Event: {app.eventTitle} | Slot: {app.boothName}</span>
+                                  </div>
+                                  <span className="font-mono text-amber-400 font-bold">${app.price}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[10px]">
+                                  <span className="text-[var(--text-secondary)]">{app.paymentTerms} payment (Paid: ${app.amountPaid})</span>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleRejectBoothApplication(app)}
+                                      className="px-2 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded font-semibold text-[9px]"
+                                    >
+                                      Reject
+                                    </button>
+                                    <button
+                                      onClick={() => handleApproveBoothApplication(app)}
+                                      className="px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded font-semibold text-[9px]"
+                                    >
+                                      Approve
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Pending Sponsorships */}
+                        {pendingSponsorApps.length > 0 && (
+                          <div className="space-y-2 pt-2 border-t border-[var(--glass-border)]">
+                            <span className="text-[9px] text-[var(--text-secondary)] uppercase font-mono font-bold block border-b border-[var(--glass-border)] pb-1">Brand Sponsor Requests</span>
+                            {pendingSponsorApps.map(app => (
+                              <div key={app.id} className="p-2.5 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <span className="font-bold text-[var(--text-primary)]">{app.companyName}</span>
+                                    <span className="text-[10px] text-slate-400 block mt-0.5">Event: {app.eventTitle} | Package: {app.packageName}</span>
+                                  </div>
+                                  <span className="font-mono text-amber-400 font-bold">${app.packagePrice}</span>
+                                </div>
+                                <div className="flex justify-end gap-2 text-[10px]">
+                                  <button
+                                    onClick={() => handleRejectSponsorApplication(app)}
+                                    className="px-2 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded font-semibold text-[9px]"
+                                  >
+                                    Reject
+                                  </button>
+                                  <button
+                                    onClick={() => handleApproveSponsorApplication(app)}
+                                    className="px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded font-semibold text-[9px]"
+                                  >
+                                    Approve
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Sponsor Deliverables tracker */}
+                  {(() => {
+                    const orgEvents = events.filter(e => e.organizerId === activeOrganizerProfile.id);
+                    const orgEventIds = new Set(orgEvents.map(e => e.id));
+                    const activeSponsorApps = sponsorApplications.filter(app => app.status === "APPROVED" && orgEventIds.has(app.eventId));
+                    
+                    if (activeSponsorApps.length === 0) return null;
+                    
+                    return (
+                      <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-3 font-sans text-xs">
+                        <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">
+                          Compliance Deliverables Checklist
+                        </h4>
+                        <div className="space-y-3">
+                          {activeSponsorApps.map(app => (
+                            <div key={app.id} className="p-3 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl space-y-2">
+                              <div>
+                                <span className="font-bold text-[var(--text-primary)] block">{app.companyName}</span>
+                                <span className="text-[9px] text-sky-400 block font-mono mt-0.5">Event: {app.eventTitle} | {app.packageName}</span>
+                              </div>
+                              <div className="space-y-1.5 pl-1.5">
+                                {app.deliverables.map((del, dIdx) => (
+                                  <label key={dIdx} className="flex items-center gap-2 text-xs text-[var(--text-secondary)] cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={del.completed}
+                                      onChange={() => {
+                                        setSponsorApplications(prev => prev.map(a => {
+                                          if (a.id === app.id) {
+                                            const updatedDel = a.deliverables.map((d, idx) => idx === dIdx ? { ...d, completed: !d.completed } : d);
+                                            return { ...a, deliverables: updatedDel };
+                                          }
+                                          return a;
+                                        }));
+                                        addSagaLog("Organizer-Service", `Organizer toggled deliverable: ${del.name} for sponsor: ${app.companyName}`, "info");
+                                      }}
+                                      className="rounded border-slate-700 bg-transparent text-emerald-500 focus:ring-0 cursor-pointer"
+                                    />
+                                    <span className={del.completed ? "line-through text-slate-500" : ""}>{del.name}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* My Organized Events Directory */}
                   <div className="space-y-4">
                     <h3 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider flex items-center gap-1.5">
@@ -6046,11 +6769,20 @@ export default function Home() {
                             <div key={ev.id} className="glass rounded-xl border border-[var(--glass-border)] p-4 space-y-3 relative overflow-hidden">
                               <div className="flex justify-between items-start gap-2">
                                 <div>
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <h5 className="font-bold text-sm text-[var(--text-primary)]">{ev.title}</h5>
                                     {ev.isSponsored && (
                                       <span className="text-amber-400 text-xs" title="Sponsored Event">★</span>
                                     )}
+                                    <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                                      ev.moderationStatus === "APPROVED" || ev.moderationStatus === undefined
+                                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+                                        : ev.moderationStatus === "PENDING"
+                                          ? "bg-amber-500/10 text-amber-400 border-amber-500/25"
+                                          : "bg-rose-500/10 text-rose-400 border-rose-500/25"
+                                    }`}>
+                                      {ev.moderationStatus || "APPROVED"}
+                                    </span>
                                   </div>
                                   <div className="text-[10px] text-[var(--text-secondary)] font-mono mt-1 flex gap-2.5">
                                     <span>Date: {ev.date}</span>
@@ -6066,7 +6798,14 @@ export default function Home() {
                                 <span className="text-[var(--text-secondary)]">Vendor Booths: <strong>{eventBooths.length} allocated</strong></span>
                               </div>
 
-                              <div className="flex justify-end gap-2 pt-1">
+                              <div className="flex justify-end gap-2 pt-1 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDuplicateEvent(ev.id)}
+                                  className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 text-[9px] py-1 px-2.5 rounded-lg font-semibold transition"
+                                >
+                                  Duplicate
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -6086,19 +6825,40 @@ export default function Home() {
                                     setNewEventIsSponsored(!!ev.isSponsored);
                                     setOrgEventSponsorPackages(ev.sponsorPackages || []);
                                     
+                                    if (ev.ticketClasses && ev.ticketClasses.length > 0) {
+                                      setEnableTiers(true);
+                                      const eb = ev.ticketClasses.find(tc => tc.name === "Early Bird");
+                                      const ga = ev.ticketClasses.find(tc => tc.name === "General Admission");
+                                      const vip = ev.ticketClasses.find(tc => tc.name === "VIP");
+                                      setEbPrice(eb ? eb.price.toString() : "");
+                                      setEbInv(eb ? eb.inventory.toString() : "");
+                                      setGaPriceForm(ga ? ga.price.toString() : "");
+                                      setGaInvForm(ga ? ga.inventory.toString() : "");
+                                      setVipPriceForm(vip ? vip.price.toString() : "");
+                                      setVipInvForm(vip ? vip.inventory.toString() : "");
+                                    } else {
+                                      setEnableTiers(false);
+                                      setEbPrice("");
+                                      setEbInv("");
+                                      setGaPriceForm("");
+                                      setGaInvForm("");
+                                      setVipPriceForm("");
+                                      setVipInvForm("");
+                                    }
+
                                     const linkedVendors = eventBooths
                                       .map(b => vendorProfiles.find(v => v.businessName === b.vendorBusinessName)?.id)
                                       .filter((id): id is string => !!id);
                                     setOrgSelectedVendorIds(linkedVendors);
                                   }}
-                                  className="bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-sky-400 text-[10px] py-1 px-3 rounded-lg font-semibold transition"
+                                  className="bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-sky-400 text-[9px] py-1 px-2.5 rounded-lg font-semibold transition"
                                 >
                                   Edit details
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteEvent(ev.id)}
-                                  className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-[10px] py-1 px-2 rounded-lg transition"
+                                  className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-[9px] py-1 px-2 rounded-lg transition"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -6118,6 +6878,700 @@ export default function Home() {
               )}
             </div>
 
+          </div>
+        )}
+
+        {/* TAB 7: VENDOR PORTAL */}
+        {activeTab === "vendor" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-[fadeIn_0.3s_ease-out]">
+            
+            {/* Left Column: Vendor Profile / Registration */}
+            <div className="lg:col-span-1 space-y-6">
+              {!activeVendorProfile ? (
+                <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400 border border-amber-500/25">
+                      <ShieldAlert className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-[var(--text-primary)] font-outfit">Vendor Registration</h4>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">Setup your business profile to lease trade booths.</p>
+                    </div>
+                  </div>
+
+                  {vendorRegStep === "form" ? (
+                    <form onSubmit={handleRegisterVendorProfile} className="space-y-3 pt-2">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Business Name *</label>
+                        <input
+                          type="text"
+                          required
+                          value={regBusinessName}
+                          onChange={(e) => setRegBusinessName(e.target.value)}
+                          placeholder="e.g. Gourmet Pizza Co."
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Owner Name *</label>
+                          <input
+                            type="text"
+                            required
+                            value={regOwnerName}
+                            onChange={(e) => setRegOwnerName(e.target.value)}
+                            placeholder="e.g. Luigi Rossini"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Category</label>
+                          <select
+                            value={regCategory}
+                            onChange={(e) => setRegCategory(e.target.value)}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                          >
+                            <option value="Technology">Technology</option>
+                            <option value="Mexican">Mexican Food</option>
+                            <option value="Italian">Italian Food</option>
+                            <option value="Apparel & Swag">Apparel & Swag</option>
+                            <option value="Crafts">Crafts</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Email Address *</label>
+                          <input
+                            type="email"
+                            required
+                            value={regEmail}
+                            onChange={(e) => setRegEmail(e.target.value)}
+                            placeholder="luigi@woodfiredpizza.it"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Phone Number *</label>
+                          <input
+                            type="tel"
+                            required
+                            value={regPhone}
+                            onChange={(e) => setRegPhone(e.target.value)}
+                            placeholder="+1 555-8833"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Business Certifications *</label>
+                        <select className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none">
+                          <option>Health Department Permit &amp; Business Tax License</option>
+                          <option>Retail Seller Certificate</option>
+                          <option>Non-Profit/Community General Liability Permit</option>
+                        </select>
+                        <span className="text-[9px] text-[var(--text-secondary)] mt-1 block">Simulation automatically uploads mock documents.</span>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded-xl text-xs transition font-outfit"
+                      >
+                        Register Vendor Profile
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleVerifyVendorOtp} className="space-y-4 pt-2">
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <label className="text-xs text-[var(--text-secondary)] font-semibold">Enter SMS Verification OTP</label>
+                          <span className="text-[10px] text-slate-500">Test OTP: <strong>987654</strong></span>
+                        </div>
+                        <input
+                          type="text"
+                          maxLength={6}
+                          value={vendorOtpInput}
+                          onChange={(e) => setVendorOtpInput(e.target.value)}
+                          placeholder="e.g. 987654"
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2.5 text-center text-sm tracking-widest text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono font-bold"
+                        />
+                        {vendorOtpError && (
+                          <p className="text-rose-400 text-xs font-semibold text-center mt-1">{vendorOtpError}</p>
+                        )}
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVendorRegStep("form");
+                            setPendingVendorProfile(null);
+                          }}
+                          className="w-1/2 bg-[var(--glass-bg)] border border-[var(--glass-border)] text-xs font-semibold py-2 rounded-xl text-[var(--text-secondary)] hover:border-slate-500"
+                        >
+                          Back
+                        </button>
+                        <button
+                          type="submit"
+                          className="w-1/2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded-xl text-xs transition font-outfit"
+                        >
+                          Verify & Access
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              ) : (
+                <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4 relative overflow-hidden">
+                  <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl font-sans"></div>
+                  <div className="flex justify-between items-start relative z-10 font-sans">
+                    <div>
+                      <span className="text-[9px] text-slate-500 font-mono uppercase tracking-widest block font-bold">Vendor Profile</span>
+                      <h4 className="text-base font-bold text-[var(--text-primary)] mt-0.5 font-outfit">{activeVendorProfile.businessName}</h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveVendorProfile(null);
+                      }}
+                      className="text-[var(--text-secondary)] hover:text-rose-400 text-xs font-semibold"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+
+                  <div className="p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl space-y-2 text-xs relative z-10 text-[var(--text-primary)] font-sans">
+                    <div className="flex justify-between">
+                      <span className="text-[var(--text-secondary)]">Owner:</span>
+                      <span className="font-semibold">{activeVendorProfile.ownerName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--text-secondary)]">Email:</span>
+                      <span className="font-semibold">{activeVendorProfile.email}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--text-secondary)]">Category:</span>
+                      <span className="font-semibold text-amber-400 font-mono uppercase">{activeVendorProfile.category}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--text-secondary)]">Status:</span>
+                      <span className="text-emerald-400 font-bold uppercase">{activeVendorProfile.status}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Middle & Right Column: Interactive Vendor Dashboard */}
+            <div className="lg:col-span-2 space-y-6">
+              {activeVendorProfile ? (
+                <>
+                  {/* During-Event Actions & Leads Scanner */}
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                    <h3 className="text-lg font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
+                      <Smartphone className="w-5 h-5 text-amber-400" />
+                      During-Event Dashboard (Live coordination)
+                    </h3>
+                    <p className="text-xs text-[var(--text-secondary)]">Manage your live operations, collect attendee leads, and log booth sales transactions.</p>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {/* Check-In Status */}
+                      <div className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-4 rounded-xl text-center space-y-2">
+                        <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider block font-bold">Venue Check-In</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            alert("✅ Check-In Successful! Venue authorities notified via SMS OTP.");
+                            addSagaLog("Vendor-Service", `Vendor ${activeVendorProfile.businessName} checked-in at the venue.`, "success");
+                          }}
+                          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-1.5 px-4 rounded-lg text-xs transition font-outfit w-full"
+                        >
+                          Scan Booth QR
+                        </button>
+                      </div>
+
+                      {/* Lead Collector */}
+                      <div className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-4 rounded-xl text-center space-y-2">
+                        <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider block font-bold font-mono">Lead Collection</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const sampleAttendees = [
+                              { name: "John Smith", email: "john@smith.com" },
+                              { name: "Alice Johnson", email: "alice@johnson.net" },
+                              { name: "Bob Miller", email: "bob@miller.org" },
+                              { name: "Elena Rostova", email: "elena@rostova.ru" },
+                              { name: "David K.", email: "david@k.com" }
+                            ];
+                            const randomLead = sampleAttendees[Math.floor(Math.random() * sampleAttendees.length)];
+                            const newLead: VendorLead = {
+                              id: `lead-${Date.now()}`,
+                              vendorId: activeVendorProfile.id,
+                              eventId: selectedEvent?.id || "evt-1",
+                              attendeeName: randomLead.name,
+                              attendeeEmail: randomLead.email,
+                              timestamp: new Date().toLocaleTimeString()
+                            };
+                            setVendorLeads(prev => [newLead, ...prev]);
+                            addSagaLog("Vendor-Service", `Collected contact lead: ${randomLead.name} (${randomLead.email})`, "success");
+                            alert(`🎉 Lead captured: ${randomLead.name} (${randomLead.email})!`);
+                          }}
+                          className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-1.5 px-4 rounded-lg text-xs transition font-outfit w-full"
+                        >
+                          Scan Attendee Ticket QR
+                        </button>
+                      </div>
+
+                      {/* Sales Logger */}
+                      <div className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-4 rounded-xl text-center space-y-2">
+                        <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider block font-bold">Log Booth Transaction</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const desc = prompt("Enter product/service description:", "Dev Swag Bag");
+                            const price = prompt("Enter sale amount ($):", "25");
+                            if (desc && price) {
+                              const amount = parseFloat(price);
+                              if (isNaN(amount)) {
+                                alert("Invalid price entered.");
+                                return;
+                              }
+                              const newSale: VendorSale = {
+                                id: `sale-${Date.now()}`,
+                                vendorId: activeVendorProfile.id,
+                                eventId: selectedEvent?.id || "evt-1",
+                                productName: desc,
+                                amount,
+                                timestamp: new Date().toLocaleTimeString()
+                              };
+                              setVendorSales(prev => [newSale, ...prev]);
+                              addSagaLog("Vendor-Service", `Logged booth sale: ${desc} ($${amount})`, "success");
+                              alert(`💰 Transaction logged successfully!`);
+                            }
+                          }}
+                          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-1.5 px-4 rounded-lg text-xs transition font-outfit w-full"
+                        >
+                          + Log Sale
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Leads and Sales Lists */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Collected Leads */}
+                    <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-3">
+                      <div className="flex justify-between items-center pb-2 border-b border-[var(--glass-border)]">
+                        <h4 className="text-sm font-bold text-[var(--text-primary)] font-outfit">Collected Attendee Leads ({vendorLeads.filter(l => l.vendorId === activeVendorProfile.id).length})</h4>
+                        {vendorLeads.filter(l => l.vendorId === activeVendorProfile.id).length > 0 && (
+                          <button
+                            onClick={() => {
+                              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(vendorLeads.filter(l => l.vendorId === activeVendorProfile.id)));
+                              const downloadAnchor = document.createElement('a');
+                              downloadAnchor.setAttribute("href",     dataStr);
+                              downloadAnchor.setAttribute("download", `Leads_${activeVendorProfile.businessName}.json`);
+                              document.body.appendChild(downloadAnchor);
+                              downloadAnchor.click();
+                              downloadAnchor.remove();
+                              addSagaLog("Vendor-Service", "Leads database exported by vendor.", "info");
+                            }}
+                            className="text-[10px] text-sky-400 hover:text-sky-300 font-bold font-sans"
+                          >
+                            Download JSON
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-40 overflow-y-auto space-y-2 text-xs pr-1">
+                        {vendorLeads.filter(l => l.vendorId === activeVendorProfile.id).length === 0 ? (
+                          <p className="text-[10px] text-[var(--text-secondary)] italic text-center py-6">No leads collected yet. Scan attendee QR tickets above!</p>
+                        ) : (
+                          vendorLeads.filter(l => l.vendorId === activeVendorProfile.id).map(l => (
+                            <div key={l.id} className="flex justify-between items-center p-2 rounded-lg bg-[var(--input-bg)] border border-[var(--glass-border)]">
+                              <div>
+                                <span className="font-bold text-[var(--text-primary)]">{l.attendeeName}</span>
+                                <span className="text-[10px] text-[var(--text-secondary)] block font-mono">{l.attendeeEmail}</span>
+                              </div>
+                              <span className="text-[9px] text-slate-500 font-mono">{l.timestamp}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Sales Tracking */}
+                    <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-3">
+                      <div className="flex justify-between items-center pb-2 border-b border-[var(--glass-border)]">
+                        <h4 className="text-sm font-bold text-[var(--text-primary)] font-outfit">Booth Sales Tracker</h4>
+                        <span className="text-xs font-mono font-bold text-emerald-400">
+                          Total: ${vendorSales.filter(s => s.vendorId === activeVendorProfile.id).reduce((acc, curr) => acc + curr.amount, 0)}
+                        </span>
+                      </div>
+                      <div className="max-h-40 overflow-y-auto space-y-2 text-xs pr-1">
+                        {vendorSales.filter(s => s.vendorId === activeVendorProfile.id).length === 0 ? (
+                          <p className="text-[10px] text-[var(--text-secondary)] italic text-center py-6">No sales recorded yet. Log transactions above!</p>
+                        ) : (
+                          vendorSales.filter(s => s.vendorId === activeVendorProfile.id).map(s => (
+                            <div key={s.id} className="flex justify-between items-center p-2 rounded-lg bg-[var(--input-bg)] border border-[var(--glass-border)]">
+                              <div>
+                                <span className="font-bold text-[var(--text-primary)]">{s.productName}</span>
+                                <span className="text-[9px] text-slate-500 block font-mono">{s.timestamp}</span>
+                              </div>
+                              <span className="font-mono font-bold text-emerald-400">${s.amount}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Booth Lease Applications */}
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                    <h4 className="text-base font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
+                      <Store className="w-5 h-5 text-sky-400" />
+                      Apply for Booth Space at Events
+                    </h4>
+                    <p className="text-xs text-[var(--text-secondary)]">Search and rent available trade booths or food truck slots in upcoming listings.</p>
+
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                      {events.filter(e => e.moderationStatus === undefined || e.moderationStatus === "APPROVED").slice(0, 10).map(ev => {
+                        const eventBooths = booths.filter(b => b.eventId === ev.id && b.status === "AVAILABLE");
+                        return (
+                          <div key={ev.id} className="p-4 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-xs">
+                            <div className="space-y-1">
+                              <span className="font-bold text-sm text-[var(--text-primary)] block font-outfit">{ev.title}</span>
+                              <div className="text-[10px] text-[var(--text-secondary)] font-mono flex gap-2">
+                                <span>Date: {ev.date}</span>
+                                <span>•</span>
+                                <span>Location: {ev.location}</span>
+                              </div>
+                              <span className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase inline-block mt-1 font-mono">
+                                {eventBooths.length} Booths Available
+                              </span>
+                            </div>
+
+                            {eventBooths.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (checkSuspended()) return;
+                                  const bh = eventBooths[0];
+                                  const terms = confirm(`Rent "${bh.name}" ($${bh.price})?\nClick OK for FULL payment, Cancel for DEPOSIT (25%).`);
+                                  const selectTerms = terms ? "FULL" : "DEPOSIT";
+                                  const amountPaid = selectTerms === "FULL" ? bh.price : Math.round(bh.price * 0.25);
+                                  
+                                  const newApp: BoothApplication = {
+                                    id: `app-${Date.now()}`,
+                                    eventId: ev.id,
+                                    eventTitle: ev.title,
+                                    boothId: bh.id,
+                                    boothName: bh.name,
+                                    vendorId: activeVendorProfile.id,
+                                    vendorName: activeVendorProfile.businessName,
+                                    category: activeVendorProfile.category,
+                                    price: bh.price,
+                                    status: "PENDING",
+                                    paymentTerms: selectTerms,
+                                    amountPaid,
+                                    documents: ["Licence_Permit.pdf", "Liability_Insurance.pdf"],
+                                    timestamp: new Date().toLocaleDateString()
+                                  };
+                                  
+                                  setBoothApplications(prev => [...prev, newApp]);
+                                  addSagaLog("Order-Service", `Vendor initiated booth lease checkout for Slot: ${bh.name}. PENDING approval.`, "info");
+                                  addNotification("Booth Application Submitted", `Your booth application for ${ev.title} was submitted. Payment terms: ${selectTerms}.`, "VENDOR");
+                                  alert("🎪 Booth lease application submitted! Awaiting Event Organizer approval.");
+                                }}
+                                className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-1.5 px-4 rounded-lg text-xs transition shrink-0"
+                              >
+                                Lease Booth Slot
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Feedback and Organizer Rating */}
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                    <h4 className="text-base font-bold text-[var(--text-primary)] font-outfit">Submit Feedback to Event Organizer</h4>
+                    <p className="text-xs text-[var(--text-secondary)]">Rate the organizer's event coordination and infrastructure services.</p>
+                    
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        alert("📝 Feedback submitted successfully to Organizer console!");
+                        addSagaLog("Vendor-Service", `Vendor submitted post-event rating/feedback to Organizer.`, "success");
+                        e.currentTarget.reset();
+                      }}
+                      className="space-y-3 text-xs"
+                    >
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block font-sans">Select Event</label>
+                          <select className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none">
+                            {events.slice(0, 3).map(e => (
+                              <option key={e.id} value={e.id}>{e.title}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block font-sans">Coordination Rating</label>
+                          <select className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none">
+                            <option value="5">⭐⭐⭐⭐⭐ (Excellent)</option>
+                            <option value="4">⭐⭐⭐⭐ (Good)</option>
+                            <option value="3">⭐⭐⭐ (Average)</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block font-sans">Comments/Notes</label>
+                        <textarea rows={2} placeholder="Write comments regarding power supply, foot traffic, security, or support..." className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl py-2 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none resize-none font-sans" />
+                      </div>
+                      <div className="flex justify-end">
+                        <button type="submit" className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-1.5 px-4 rounded-lg transition">Submit Coordination Feedback</button>
+                      </div>
+                    </form>
+                  </div>
+                </>
+              ) : (
+                <div className="glass rounded-2xl border border-[var(--glass-border)] p-12 text-center text-[var(--text-secondary)]">
+                  <p>Please register and verify a Vendor Business profile on the left to load operational dashboard panel.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 8: SPONSOR PORTAL */}
+        {activeTab === "sponsor" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-[fadeIn_0.3s_ease-out]">
+            
+            {/* Left Column: Sponsor Profile */}
+            <div className="lg:col-span-1 space-y-6">
+              {(() => {
+                const activeSponsor = users.find(u => u.role === "SPONSOR");
+                const isSuspended = activeSponsor?.status === "SUSPENDED";
+                
+                return (
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 relative overflow-hidden">
+                    <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl"></div>
+                    <div className="flex justify-between items-start relative z-10">
+                      <div>
+                        <span className="text-[9px] text-slate-500 font-mono uppercase tracking-widest block font-bold">Brand Corporate Profile</span>
+                        <h4 className="text-base font-bold text-[var(--text-primary)] mt-0.5 font-outfit">Apex Sponsors Inc.</h4>
+                      </div>
+                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${isSuspended ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"}`}>
+                        {isSuspended ? "Suspended" : "Active"}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl space-y-2 text-xs relative z-10 text-[var(--text-primary)] font-sans">
+                      <div className="flex justify-between">
+                        <span className="text-[var(--text-secondary)]">Representative:</span>
+                        <span className="font-semibold">Alex Rivera</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[var(--text-secondary)]">Email:</span>
+                        <span className="font-semibold">sponsor@apex.com</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[var(--text-secondary)]">Corporate URL:</span>
+                        <span className="font-semibold text-sky-400 font-mono">apex.com</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-[var(--glass-border)]">
+                      <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Upload Brand Assets (Logo / Banners)</label>
+                      <input type="file" className="text-xs text-[var(--text-secondary)] file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-sky-500/15 file:text-sky-300 hover:file:bg-sky-500/25 cursor-pointer" />
+                      <span className="text-[8px] text-[var(--text-secondary)] block">Upload high-res SVG/PNG vectors for banner placements.</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Middle & Right Column: Interactive Sponsor Dashboard */}
+            <div className="lg:col-span-2 space-y-6">
+              
+              {/* Sponsor Brand Analytics */}
+              <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 relative overflow-hidden">
+                <div className="absolute -top-24 -right-24 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
+                <h3 className="text-lg font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
+                  <BarChart2 className="w-5 h-5 text-amber-400" />
+                  Brand exposure &amp; Reach Analytics
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)]">Estimated sponsor impressions and reach statistics calculated across platform listing views.</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono">
+                  <div className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-4 rounded-xl text-center">
+                    <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider block font-bold font-sans">Brand Impressions</span>
+                    <span className="text-2xl font-bold text-sky-400 mt-1 block">42,500</span>
+                    <span className="text-[9px] text-[var(--text-secondary)] italic font-sans">+1.5k live catalog views</span>
+                  </div>
+
+                  <div className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-4 rounded-xl text-center">
+                    <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider block font-bold font-sans">Logo Click-Throughs</span>
+                    <span className="text-2xl font-bold text-amber-400 mt-1 block">1,840</span>
+                    <span className="text-[9px] text-emerald-400 font-sans font-bold">4.3% CTR Average</span>
+                  </div>
+
+                  <div className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-4 rounded-xl text-center">
+                    <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider block font-bold font-sans">Total Reach</span>
+                    <span className="text-2xl font-bold text-emerald-400 mt-1 block">12 Events</span>
+                    <span className="text-[9px] text-[var(--text-secondary)] italic font-sans">Across 4 State Properties</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Browse and Buy Sponsorship Packages */}
+              <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                <h4 className="text-base font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
+                  <Award className="w-5 h-5 text-amber-400" />
+                  Acquire Sponsorship Opportunities
+                </h4>
+                <p className="text-xs text-[var(--text-secondary)]">Review corporate sponsorship tiers configured by organizers and purchase packages.</p>
+
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-1 font-sans">
+                  {events
+                    .filter(e => e.sponsorPackages && e.sponsorPackages.length > 0 && (e.moderationStatus === undefined || e.moderationStatus === "APPROVED"))
+                    .slice(0, 10)
+                    .map(ev => (
+                      <div key={ev.id} className="p-4 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] space-y-3 text-xs font-sans">
+                        <div className="flex justify-between items-start flex-wrap gap-2">
+                          <div>
+                            <span className="font-bold text-sm text-[var(--text-primary)] block font-outfit">{ev.title}</span>
+                            <span className="text-[10px] text-[var(--text-secondary)] font-mono">Date: {ev.date} · Location: {ev.location}</span>
+                          </div>
+                          <span className="text-[9px] font-mono bg-amber-500/10 border border-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase">
+                            Opportunities Open
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                          {ev.sponsorPackages?.map(pkg => {
+                            const isPurchased = sponsorApplications.some(sa => sa.eventId === ev.id && sa.packageId === pkg.id && sa.status === "APPROVED");
+                            const isPending = sponsorApplications.some(sa => sa.eventId === ev.id && sa.packageId === pkg.id && sa.status === "PENDING");
+                            
+                            return (
+                              <div key={pkg.id} className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-3 rounded-lg flex flex-col justify-between gap-3 font-sans">
+                                <div>
+                                  <div className="flex justify-between items-start">
+                                    <span className="font-bold text-[var(--text-primary)]">{pkg.name}</span>
+                                    <span className="font-mono text-amber-400 font-bold">${pkg.price.toLocaleString()}</span>
+                                  </div>
+                                  <p className="text-[9px] text-[var(--text-secondary)] mt-1">Benefits: {pkg.benefits.join(", ")}</p>
+                                </div>
+
+                                {isPurchased ? (
+                                  <span className="w-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-center font-bold font-mono py-1 rounded text-[10px] uppercase">
+                                    Active Sponsor
+                                  </span>
+                                ) : isPending ? (
+                                  <span className="w-full bg-amber-500/10 border border-amber-500/25 text-amber-400 text-center font-bold font-mono py-1 rounded text-[10px] uppercase">
+                                    Application Pending
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (checkSuspended()) return;
+                                      const confirmPay = confirm(`Purchase package "${pkg.name}" ($${pkg.price}) for ${ev.title}?`);
+                                      if (confirmPay) {
+                                        const newApp: SponsorApplication = {
+                                          id: `sp-app-${Date.now()}`,
+                                          eventId: ev.id,
+                                          eventTitle: ev.title,
+                                          packageId: pkg.id,
+                                          packageName: pkg.name,
+                                          packagePrice: pkg.price,
+                                          sponsorId: "usr-4",
+                                          companyName: "Apex Sponsors Inc.",
+                                          logoUrl: "Apex_Logo.svg",
+                                          status: "PENDING",
+                                          timestamp: new Date().toLocaleDateString(),
+                                          deliverables: [
+                                            { name: "Submit logo SVG vectors", completed: true },
+                                            { name: "Approve stage banner mock layout", completed: false },
+                                            { name: "Deliver promotional swag bag items", completed: false }
+                                          ]
+                                        };
+                                        setSponsorApplications(prev => [...prev, newApp]);
+                                        addSagaLog("Order-Service", `Sponsor corporate initiated payment checkout for Package: ${pkg.name}. Awaiting coordinator approval.`, "info");
+                                        addNotification("Sponsorship Application Submitted", `Your purchase request for ${pkg.name} package was submitted to Organizer.`, "SPONSOR");
+                                        alert("🎗️ Sponsorship purchased! Application submitted. Awaiting Event Organizer validation.");
+                                      }
+                                    }}
+                                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] py-1 px-3 rounded-lg font-bold transition flex items-center justify-center gap-1.5 font-outfit"
+                                  >
+                                    <Award className="w-3.5 h-3.5" /> Buy Sponsorship
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Sponsor Deliverables List */}
+              <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                <h4 className="text-base font-bold text-[var(--text-primary)] font-outfit">Sponsor Deliverables &amp; Tracking</h4>
+                <p className="text-xs text-[var(--text-secondary)]">Complete and trace the compliance items configured for your active event sponsorships.</p>
+
+                <div className="space-y-3 font-sans">
+                  {sponsorApplications.length === 0 ? (
+                    <p className="text-[10px] text-[var(--text-secondary)] italic text-center py-4">No active sponsorships. Purchase packages above to load deliverables checklist.</p>
+                  ) : (
+                    sponsorApplications.map(app => (
+                      <div key={app.id} className="p-4 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] space-y-3 text-xs">
+                        <div className="flex justify-between items-center pb-2 border-b border-[var(--glass-border)]">
+                          <div>
+                            <span className="font-bold text-[var(--text-primary)] font-outfit text-sm">{app.eventTitle}</span>
+                            <span className="text-[10px] text-amber-400 block font-mono mt-0.5">{app.packageName} (${app.packagePrice})</span>
+                          </div>
+                          <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-bold ${app.status === "APPROVED" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"}`}>
+                            {app.status}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <span className="text-[9px] text-[var(--text-secondary)] uppercase font-mono font-bold">Compliance Checklist:</span>
+                          <div className="space-y-1.5 pl-1.5">
+                            {app.deliverables.map((del, dIdx) => (
+                              <label key={dIdx} className="flex items-center gap-2 text-xs text-[var(--text-secondary)] cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={del.completed}
+                                  onChange={() => {
+                                    setSponsorApplications(prev => prev.map(a => {
+                                      if (a.id === app.id) {
+                                        const updatedDel = a.deliverables.map((d, idx) => idx === dIdx ? { ...d, completed: !d.completed } : d);
+                                        return { ...a, deliverables: updatedDel };
+                                      }
+                                      return a;
+                                    }));
+                                    addSagaLog("Sponsor-Service", `Toggled deliverable: ${del.name} for package: ${app.packageName}`, "info");
+                                  }}
+                                  className="rounded border-slate-700 bg-transparent text-amber-500 focus:ring-0 cursor-pointer"
+                                />
+                                <span className={del.completed ? "line-through text-slate-500" : ""}>{del.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+            </div>
           </div>
         )}
 
@@ -6964,6 +8418,210 @@ export default function Home() {
         </div>
       )}
 
+      {/* COMMUNITY REVIEW SUBMISSION MODAL DIALOG */}
+      {showReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4">
+          <div className="glass rounded-2xl border border-[var(--glass-border)] max-w-md w-full p-6 space-y-5 relative overflow-hidden">
+            <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl"></div>
+
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-xl font-bold text-[var(--text-primary)] font-outfit">Write a Review</h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  Share your experience with the community.
+                </p>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowReviewModal(false)}
+                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {reviewVerificationStep === "form" ? (
+              <form onSubmit={handleVerifyAndSubmitReview} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Author Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={reviewAuthorName}
+                      onChange={(e) => setReviewAuthorName(e.target.value)}
+                      placeholder="Jane Doe"
+                      className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      value={reviewAuthorEmail}
+                      onChange={(e) => setReviewAuthorEmail(e.target.value)}
+                      placeholder="jane@doe.com"
+                      className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Rating (1-5 Stars)</label>
+                    <select
+                      value={reviewRating}
+                      onChange={(e) => setReviewRating(parseInt(e.target.value))}
+                      className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                    >
+                      <option value={5}>⭐⭐⭐⭐⭐ (5 Stars)</option>
+                      <option value={4}>⭐⭐⭐⭐ (4 Stars)</option>
+                      <option value={3}>⭐⭐⭐ (3 Stars)</option>
+                      <option value={2}>⭐⭐ (2 Stars)</option>
+                      <option value={1}>⭐ (1 Star)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Target</label>
+                    <span className="block text-xs font-bold text-sky-400 py-1.5 uppercase font-mono">{reviewTargetType}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Review Comment *</label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="Write your constructive feedback..."
+                    className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl py-2 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500 resize-none"
+                  />
+                </div>
+
+                {reviewOtpError && <p className="text-rose-400 text-xs font-semibold text-center">{reviewOtpError}</p>}
+
+                <button
+                  type="submit"
+                  className="w-full bg-sky-500 hover:bg-sky-400 text-xs font-bold py-2.5 rounded-xl transition shadow text-white"
+                >
+                  Verify via SMS OTP
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyAndSubmitReview} className="space-y-4">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs text-[var(--text-secondary)] font-semibold">Enter SMS Verification OTP</label>
+                    <span className="text-[10px] text-slate-500">Test OTP: <strong>123456</strong></span>
+                  </div>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={reviewOtpInput}
+                    onChange={(e) => setReviewOtpInput(e.target.value)}
+                    placeholder="e.g. 123456"
+                    className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2.5 text-center text-sm tracking-widest text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono font-bold"
+                  />
+                  {reviewOtpError && (
+                    <p className="text-rose-400 text-xs font-semibold text-center mt-1">{reviewOtpError}</p>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewVerificationStep("form");
+                    }}
+                    className="w-1/2 bg-[var(--glass-bg)] border border-[var(--glass-border)] text-xs font-semibold py-2 rounded-xl text-[var(--text-secondary)] hover:border-slate-500"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    className="w-1/2 bg-sky-500 hover:bg-sky-400 text-white font-bold py-2 rounded-xl text-xs transition"
+                  >
+                    Verify & Submit
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SOCIAL INVITE FRIENDS MODAL DIALOG */}
+      {inviteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4">
+          <div className="glass rounded-2xl border border-[var(--glass-border)] max-w-md w-full p-6 space-y-5 relative overflow-hidden">
+            <div className="absolute -top-16 -right-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl"></div>
+
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-xl font-bold text-[var(--text-primary)] font-outfit">Invite Friends</h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  Share this event experience with your network.
+                </p>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setInviteModalOpen(false)}
+                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!inviteEmails.trim()) {
+                  alert("Please enter at least one email address.");
+                  return;
+                }
+                const emailList = inviteEmails.split(",").map(em => em.trim()).filter(Boolean);
+                alert(`📧 Inviting ${emailList.length} friend(s) to the event: ` + emailList.join(", "));
+                addSagaLog("Notification-Service", `[EMAIL SENT] Mock invitations dispatched to: ${emailList.join(", ")}`, "success");
+                addNotification("Invitations Dispatched", `Sent ${emailList.length} friend invitations for event listing successfully.`, "ATTENDEE");
+                setInviteModalOpen(false);
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Friend Email Addresses *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={inviteEmails}
+                  onChange={(e) => setInviteEmails(e.target.value)}
+                  placeholder="e.g. friend1@email.com, friend2@email.com"
+                  className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl py-2 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500 resize-none font-sans"
+                />
+                <span className="text-[9px] text-[var(--text-secondary)] block">Enter comma-separated emails. We will notify them instantly.</span>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setInviteModalOpen(false)}
+                  className="bg-[var(--glass-bg)] border border-[var(--glass-border)] text-xs font-semibold py-2 px-4 rounded-xl text-[var(--text-secondary)] hover:border-slate-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-2 px-5 rounded-xl text-xs transition shadow"
+                >
+                  Send Invitations
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ===================== EVENT DETAIL PAGE OVERLAY ===================== */}
       {showEventDetailPage && detailPageEvent && (
         <div className="event-detail-backdrop fixed inset-0 z-40 bg-[var(--bg-primary)] overflow-y-auto">
@@ -7353,147 +9011,255 @@ export default function Home() {
                     </div>
                   );
                 })()}
+
+                {/* Event Schedule Timeline */}
+                <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 relative overflow-hidden">
+                  <div className="absolute -top-16 -left-16 w-36 h-36 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
+                  <h2 className="text-lg font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-sky-400" />
+                    Event Schedule & Timeline
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)]">Plan your day with the official event itinerary below.</p>
+                  
+                  <div className="relative border-l border-slate-700 ml-3 pl-6 space-y-6 text-xs pt-2">
+                    <div className="relative">
+                      <div className="absolute -left-[30px] top-0.5 bg-sky-500 w-3 h-3 rounded-full border-2 border-[var(--bg-primary)]"></div>
+                      <span className="font-mono text-sky-400 font-bold block">09:00 AM — 10:00 AM</span>
+                      <h4 className="font-bold text-[var(--text-primary)] text-sm mt-0.5 font-outfit">Doors Open & Registration</h4>
+                      <p className="text-[var(--text-secondary)] mt-0.5 leading-relaxed">Pick up your entry badge and welcome kits at the reception desks.</p>
+                    </div>
+
+                    <div className="relative">
+                      <div className="absolute -left-[30px] top-0.5 bg-sky-500 w-3 h-3 rounded-full border-2 border-[var(--bg-primary)]"></div>
+                      <span className="font-mono text-sky-400 font-bold block">10:00 AM — 11:30 AM</span>
+                      <h4 className="font-bold text-[var(--text-primary)] text-sm mt-0.5 font-outfit font-bold text-sky-400">Opening Keynotes & Panel</h4>
+                      <p className="text-[var(--text-secondary)] mt-0.5 leading-relaxed">Industry leaders discuss emerging trends, monolithic architectures, and DDD patterns.</p>
+                    </div>
+
+                    <div className="relative">
+                      <div className="absolute -left-[30px] top-0.5 bg-sky-500 w-3 h-3 rounded-full border-2 border-[var(--bg-primary)]"></div>
+                      <span className="font-mono text-sky-400 font-bold block">11:30 AM — 01:00 PM</span>
+                      <h4 className="font-bold text-[var(--text-primary)] text-sm mt-0.5 font-outfit">Vendor Showcase & Lunch Break</h4>
+                      <p className="text-[var(--text-secondary)] mt-0.5 leading-relaxed">Explore vendor booths, grab lunch at the local food truck spots, and network.</p>
+                    </div>
+
+                    <div className="relative">
+                      <div className="absolute -left-[30px] top-0.5 bg-sky-500 w-3 h-3 rounded-full border-2 border-[var(--bg-primary)]"></div>
+                      <span className="font-mono text-sky-400 font-bold block">01:00 PM — 03:00 PM</span>
+                      <h4 className="font-bold text-[var(--text-primary)] text-sm mt-0.5 font-outfit">Interactive Workshops</h4>
+                      <p className="text-[var(--text-secondary)] mt-0.5 leading-relaxed">Deep-dive technical tracks and hands-on developer training labs.</p>
+                    </div>
+
+                    <div className="relative">
+                      <div className="absolute -left-[30px] top-0.5 bg-sky-500 w-3 h-3 rounded-full border-2 border-[var(--bg-primary)]"></div>
+                      <span className="font-mono text-sky-400 font-bold block">03:00 PM — 05:00 PM</span>
+                      <h4 className="font-bold text-[var(--text-primary)] text-sm mt-0.5 font-outfit">Sponsor Presentations & Close</h4>
+                      <p className="text-[var(--text-secondary)] mt-0.5 leading-relaxed">Special deliverables awards, raffle drawings, and closing remarks.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Social Sharing & Invites */}
+                <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 relative overflow-hidden">
+                  <div className="absolute -bottom-16 -right-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+                  <h2 className="text-lg font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
+                    <Users className="w-5 h-5 text-indigo-400" />
+                    Social Sharing & Invites
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)]">Invite colleagues and share this event on your networks.</p>
+
+                  <div className="flex flex-wrap gap-3 pt-1">
+                    <button
+                      onClick={() => {
+                        const mockUrl = `https://auratickets.com/events/${detailPageEvent.id}`;
+                        navigator.clipboard.writeText(mockUrl);
+                        alert("📋 Event link copied to clipboard! " + mockUrl);
+                        addSagaLog("Social-Service", `Generated event sharing link for: ${detailPageEvent.title}`, "info");
+                      }}
+                      className="bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 text-xs py-2.5 px-4 rounded-xl font-bold transition flex items-center gap-1.5"
+                    >
+                      <span>🔗 Copy Event Link</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setInviteEventId(detailPageEvent.id);
+                        setInviteEmails("");
+                        setInviteModalOpen(true);
+                      }}
+                      className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs py-2.5 px-4 rounded-xl font-bold transition flex items-center gap-1.5"
+                    >
+                      <span>✉️ Invite Friends via Email</span>
+                    </button>
+                  </div>
+                </div>
+
               </div>
 
               {/* RIGHT COLUMN: Sticky Purchase Panel */}
               <div className="lg:col-span-1">
                 <div className="sticky top-20 space-y-4">
 
-                  {/* Mode toggle */}
-                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-1 grid grid-cols-2 gap-1">
-                    <button type="button"
-                      onClick={() => { setBookingMode("TICKET"); setSelectedBooth(null); setAppliedPromo(""); setPromoSuccess(null); setPromoError(null); }}
-                      className={`py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${bookingMode === "TICKET" ? "bg-sky-500 text-white shadow" : "text-[var(--text-secondary)] hover:text-white"}`}>
-                      <Ticket className="w-3.5 h-3.5" /> Tickets
-                    </button>
-                    <button type="button"
-                      onClick={() => { setBookingMode("BOOTH"); setTicketQuantity(1); setAppliedPromo(""); setPromoSuccess(null); setPromoError(null); }}
-                      className={`py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${bookingMode === "BOOTH" ? "bg-sky-500 text-white shadow" : "text-[var(--text-secondary)] hover:text-white"}`}>
-                      <Store className="w-3.5 h-3.5" /> Booths
-                    </button>
-                  </div>
+                  {/* Tickets Booking Panel */}
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-5 relative overflow-hidden">
+                    <div className="absolute -top-12 -right-12 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
 
-                  {bookingMode === "TICKET" && (
-                    <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-5 relative overflow-hidden">
-                      <div className="absolute -top-12 -right-12 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
-
-                      {/* Price */}
-                      <div className="flex items-baseline justify-between">
-                        <div>
-                          <span className="text-3xl font-bold font-mono text-[var(--text-primary)]">${detailPageEvent.price}</span>
-                          <span className="text-sm text-[var(--text-secondary)] ml-1">/ ticket</span>
+                    {/* Price & Class Selector */}
+                    <div className="space-y-4">
+                      {detailPageEvent.ticketClasses && detailPageEvent.ticketClasses.length > 0 ? (
+                        <div className="space-y-2.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-medium block">Select Ticket Tier</label>
+                          <div className="space-y-2">
+                            {detailPageEvent.ticketClasses.map((tc) => {
+                              const classAvail = tc.inventory - tc.sold;
+                              const isSelected = selectedTicketClass === tc.name;
+                              return (
+                                <div
+                                  key={tc.name}
+                                  onClick={() => {
+                                    if (classAvail > 0) {
+                                      setSelectedTicketClass(tc.name);
+                                      setTicketQuantity(1);
+                                    }
+                                  }}
+                                  className={`p-3 rounded-xl border text-left transition-all flex justify-between items-center ${
+                                    classAvail <= 0
+                                      ? "border-[var(--glass-border)] bg-[var(--glass-bg)] opacity-50 cursor-not-allowed text-[var(--text-secondary)]"
+                                      : isSelected
+                                        ? "border-sky-500 bg-sky-500/10 text-[var(--text-primary)] ring-1 ring-sky-500/20 cursor-pointer"
+                                        : "border-[var(--glass-border)] hover:border-[var(--text-secondary)]/30 bg-[var(--input-bg)] cursor-pointer text-[var(--text-primary)]"
+                                  }`}
+                                >
+                                  <div>
+                                    <span className="text-xs font-bold block">{tc.name}</span>
+                                    <span className="text-[10px] text-[var(--text-secondary)] font-mono">{classAvail <= 0 ? "SOLD OUT" : `${classAvail} left`}</span>
+                                  </div>
+                                  <span className="text-sm font-mono font-bold text-sky-400">${tc.price}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                        {(() => {
-                          const avail = detailPageEvent.ticketInventory - detailPageEvent.ticketsSold;
-                          return (
-                            <span className={`text-xs font-bold px-2 py-1 rounded-lg border font-mono ${avail <= 0 ? "bg-rose-500/10 border-rose-500/30 text-rose-400" : avail <= 15 ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"}`}>
-                              {avail <= 0 ? "SOLD OUT" : `${avail} left`}
-                            </span>
-                          );
-                        })()}
+                      ) : (
+                        <div className="flex items-baseline justify-between">
+                          <div>
+                            <span className="text-3xl font-bold font-mono text-[var(--text-primary)]">${detailPageEvent.price}</span>
+                            <span className="text-sm text-[var(--text-secondary)] ml-1">/ ticket</span>
+                          </div>
+                          {(() => {
+                            const avail = detailPageEvent.ticketInventory - detailPageEvent.ticketsSold;
+                            return (
+                              <span className={`text-xs font-bold px-2 py-1 rounded-lg border font-mono ${avail <= 0 ? "bg-rose-500/10 border-rose-500/30 text-rose-400" : avail <= 15 ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"}`}>
+                                {avail <= 0 ? "SOLD OUT" : `${avail} left`}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quantity */}
+                    <div className="space-y-2">
+                      <label className="text-xs text-[var(--text-secondary)] font-medium block">Number of Tickets</label>
+                      <div className="flex items-center gap-3">
+                        <button type="button" disabled={ticketQuantity <= 1} onClick={() => setTicketQuantity(prev => Math.max(1, prev - 1))}
+                          className="w-10 h-10 rounded-xl bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-slate-605 disabled:opacity-40 font-bold flex items-center justify-center text-xl transition text-[var(--text-primary)]">−</button>
+                        <span className="flex-1 text-center text-2xl font-bold font-mono text-[var(--text-primary)]">{ticketQuantity}</span>
+                        <button type="button" 
+                          disabled={(() => {
+                            if (detailPageEvent.ticketClasses) {
+                              const tc = detailPageEvent.ticketClasses.find(c => c.name === selectedTicketClass);
+                              return tc ? ticketQuantity >= (tc.inventory - tc.sold) : true;
+                            }
+                            return ticketQuantity >= (detailPageEvent.ticketInventory - detailPageEvent.ticketsSold);
+                          })()} 
+                          onClick={() => setTicketQuantity(prev => prev + 1)}
+                          className="w-10 h-10 rounded-xl bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-slate-605 disabled:opacity-40 font-bold flex items-center justify-center text-xl transition text-[var(--text-primary)]">+</button>
                       </div>
+                    </div>
 
-                      {/* Quantity */}
-                      <div className="space-y-2">
-                        <label className="text-xs text-[var(--text-secondary)] font-medium block">Number of Tickets</label>
-                        <div className="flex items-center gap-3">
-                          <button type="button" disabled={ticketQuantity <= 1} onClick={() => setTicketQuantity(prev => Math.max(1, prev - 1))}
-                            className="w-10 h-10 rounded-xl bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-slate-600 disabled:opacity-40 font-bold flex items-center justify-center text-xl transition text-[var(--text-primary)]">−</button>
-                          <span className="flex-1 text-center text-2xl font-bold font-mono text-[var(--text-primary)]">{ticketQuantity}</span>
-                          <button type="button" disabled={ticketQuantity >= (detailPageEvent.ticketInventory - detailPageEvent.ticketsSold)} onClick={() => setTicketQuantity(prev => prev + 1)}
-                            className="w-10 h-10 rounded-xl bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-slate-600 disabled:opacity-40 font-bold flex items-center justify-center text-xl transition text-[var(--text-primary)]">+</button>
-                        </div>
+                    {/* Promo */}
+                    <div className="space-y-2 pt-2 border-t border-[var(--glass-border)]">
+                      <label className="text-xs text-[var(--text-secondary)] font-medium flex items-center gap-1.5">
+                        <Gift className="w-3.5 h-3.5 text-indigo-400" /> Promo Code
+                      </label>
+                      <div className="flex gap-2">
+                        <input type="text" value={appliedPromo}
+                          onChange={e => { setAppliedPromo(e.target.value.toUpperCase()); setPromoSuccess(null); setPromoError(null); }}
+                          placeholder="e.g. WELCOME10"
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/55 focus:outline-none focus:border-sky-500 w-full font-mono uppercase" />
+                        <button type="button" onClick={verifyPromo}
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-sky-500 text-xs px-3.5 rounded-xl transition text-[var(--text-primary)] font-medium">Apply</button>
                       </div>
+                      {promoError && <p className="text-rose-400 text-xs font-medium flex items-center gap-1"><X className="w-3 h-3" />{promoError}</p>}
+                      {promoSuccess && <p className="text-emerald-400 text-xs font-medium flex items-center gap-1"><Check className="w-3 h-3" />{promoSuccess}</p>}
+                    </div>
 
-                      {/* Promo */}
-                      <div className="space-y-2 pt-2 border-t border-[var(--glass-border)]">
-                        <label className="text-xs text-[var(--text-secondary)] font-medium flex items-center gap-1.5">
-                          <Gift className="w-3.5 h-3.5 text-indigo-400" /> Promo Code
-                        </label>
-                        <div className="flex gap-2">
-                          <input type="text" value={appliedPromo}
-                            onChange={e => { setAppliedPromo(e.target.value.toUpperCase()); setPromoSuccess(null); setPromoError(null); }}
-                            placeholder="e.g. WELCOME10"
-                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/55 focus:outline-none focus:border-sky-500 w-full font-mono uppercase" />
-                          <button type="button" onClick={verifyPromo}
-                            className="bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-sky-500 text-xs px-3.5 rounded-xl transition text-[var(--text-primary)] font-medium">Apply</button>
-                        </div>
-                        {promoError && <p className="text-rose-400 text-xs font-medium flex items-center gap-1"><X className="w-3 h-3" />{promoError}</p>}
-                        {promoSuccess && <p className="text-emerald-400 text-xs font-medium flex items-center gap-1"><Check className="w-3 h-3" />{promoSuccess}</p>}
-                      </div>
-
-                      {/* Payment gateway */}
-                      <div className="space-y-2 pt-2 border-t border-[var(--glass-border)]">
-                        <label className="text-xs text-[var(--text-secondary)] font-medium block">Payment Gateway</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button type="button" onClick={() => setPaymentGateway("Stripe")}
-                            className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-semibold transition ${paymentGateway === "Stripe" ? "border-sky-500 bg-sky-500/10 text-sky-400" : "border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:border-sky-500/40"}`}>
-                            <CreditCard className="w-3.5 h-3.5" /> Stripe
-                          </button>
-                          <button type="button" onClick={() => setPaymentGateway("PayPal")}
-                            className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-semibold transition ${paymentGateway === "PayPal" ? "border-indigo-500 bg-indigo-500/10 text-indigo-400" : "border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:border-indigo-500/40"}`}>
-                            <Zap className="w-3.5 h-3.5" /> PayPal
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Simulation toggle */}
-                      <div className="bg-[var(--glass-bg)] rounded-xl p-3 border border-[var(--glass-border)] flex items-center justify-between">
-                        <div>
-                          <span className="text-xs font-bold text-[var(--text-primary)] block">Simulate Payment Success?</span>
-                          <span className="text-[10px] text-[var(--text-secondary)]">Toggle to trigger SAGA rollback.</span>
-                        </div>
-                        <button type="button" onClick={() => setSimulatePaymentFailure(!simulatePaymentFailure)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${simulatePaymentFailure ? "bg-rose-500" : "bg-sky-500"}`}>
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${simulatePaymentFailure ? "translate-x-6" : "translate-x-1"}`} />
+                    {/* Payment gateway */}
+                    <div className="space-y-2 pt-2 border-t border-[var(--glass-border)]">
+                      <label className="text-xs text-[var(--text-secondary)] font-medium block">Payment Gateway</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button type="button" onClick={() => setPaymentGateway("Stripe")}
+                          className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-semibold transition ${paymentGateway === "Stripe" ? "border-sky-500 bg-sky-500/10 text-sky-400" : "border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:border-sky-500/40"}`}>
+                          <CreditCard className="w-3.5 h-3.5" /> Stripe
+                        </button>
+                        <button type="button" onClick={() => setPaymentGateway("PayPal")}
+                          className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-semibold transition ${paymentGateway === "PayPal" ? "border-indigo-500 bg-indigo-500/10 text-indigo-400" : "border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:border-indigo-500/40"}`}>
+                          <Zap className="w-3.5 h-3.5" /> PayPal
                         </button>
                       </div>
+                    </div>
 
-                      {/* Cost summary */}
-                      <div className="bg-[var(--input-bg)] rounded-xl p-4 border border-[var(--glass-border)] space-y-2">
-                        <div className="flex justify-between text-sm text-[var(--text-secondary)]">
-                          <span>Subtotal ({ticketQuantity} ticket{ticketQuantity > 1 ? "s" : ""})</span>
-                          <span className="font-mono text-[var(--text-primary)]">${pricingDetails.subtotal}</span>
-                        </div>
-                        {pricingDetails.discount > 0 && (
-                          <div className="flex justify-between text-sm text-emerald-400">
-                            <span>Promo Discount</span>
-                            <span className="font-mono">−${pricingDetails.discount}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between font-bold text-[var(--text-primary)] pt-2 border-t border-[var(--glass-border)] text-xl">
-                          <span>Total</span>
-                          <span className="font-mono text-sky-400">${pricingDetails.total}</span>
-                        </div>
+                    {/* Simulation toggle */}
+                    <div className="bg-[var(--glass-bg)] rounded-xl p-3 border border-[var(--glass-border)] flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-[var(--text-primary)] block">Simulate Payment Success?</span>
+                        <span className="text-[10px] text-[var(--text-secondary)]">Toggle to trigger SAGA rollback.</span>
                       </div>
-
-                      {/* CTA */}
-                      <button
-                        type="button"
-                        onClick={() => { setShowEventDetailPage(false); startCheckout(); }}
-                        disabled={detailPageEvent.ticketInventory - detailPageEvent.ticketsSold <= 0}
-                        className="w-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-4 rounded-xl shadow-lg shadow-sky-500/20 hover:shadow-sky-500/30 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 font-outfit"
-                      >
-                        <Ticket className="w-5 h-5" />
-                        Book {ticketQuantity} Ticket{ticketQuantity > 1 ? "s" : ""} · ${pricingDetails.total}
-                      </button>
-                      <p className="text-[10px] text-center text-[var(--text-secondary)]">
-                        Powered by {paymentGateway} · SAGA distributed checkout
-                      </p>
-                    </div>
-                  )}
-
-                  {bookingMode === "BOOTH" && (
-                    <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 text-center">
-                      <Store className="w-10 h-10 text-sky-400/40 mx-auto" />
-                      <p className="text-sm text-[var(--text-secondary)]">To lease a vendor booth, return to the catalog and use the Booth booking panel.</p>
-                      <button type="button" onClick={() => { setShowEventDetailPage(false); setBookingMode("BOOTH"); }}
-                        className="w-full bg-[var(--glass-bg)] border border-[var(--glass-border)] hover:border-sky-500/40 text-xs py-2.5 rounded-xl font-semibold transition text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                        Go to Booth Booking
+                      <button type="button" onClick={() => setSimulatePaymentFailure(!simulatePaymentFailure)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${simulatePaymentFailure ? "bg-rose-500" : "bg-sky-500"}`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${simulatePaymentFailure ? "translate-x-6" : "translate-x-1"}`} />
                       </button>
                     </div>
-                  )}
 
+                    {/* Cost summary */}
+                    <div className="bg-[var(--input-bg)] rounded-xl p-4 border border-[var(--glass-border)] space-y-2">
+                      <div className="flex justify-between text-sm text-[var(--text-secondary)]">
+                        <span>Subtotal ({ticketQuantity} ticket{ticketQuantity > 1 ? "s" : ""})</span>
+                        <span className="font-mono text-[var(--text-primary)]">${pricingDetails.subtotal}</span>
+                      </div>
+                      {pricingDetails.discount > 0 && (
+                        <div className="flex justify-between text-sm text-emerald-400">
+                          <span>Promo Discount</span>
+                          <span className="font-mono">−${pricingDetails.discount}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-[var(--text-primary)] pt-2 border-t border-[var(--glass-border)] text-xl">
+                        <span>Total</span>
+                        <span className="font-mono text-sky-400">${pricingDetails.total}</span>
+                      </div>
+                    </div>
+
+                    {/* CTA */}
+                    <button
+                      type="button"
+                      onClick={() => { setShowEventDetailPage(false); startCheckout(); }}
+                      disabled={(() => {
+                        if (detailPageEvent.ticketClasses) {
+                          const tc = detailPageEvent.ticketClasses.find(c => c.name === selectedTicketClass);
+                          return tc ? (tc.inventory - tc.sold <= 0) : true;
+                        }
+                        return detailPageEvent.ticketInventory - detailPageEvent.ticketsSold <= 0;
+                      })()}
+                      className="w-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-4 rounded-xl shadow-lg shadow-sky-500/20 hover:shadow-sky-500/30 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 font-outfit"
+                    >
+                      <Ticket className="w-5 h-5" />
+                      Book {ticketQuantity} Ticket{ticketQuantity > 1 ? "s" : ""} · ${pricingDetails.total}
+                    </button>
+                    <p className="text-[10px] text-center text-[var(--text-secondary)]">
+                      Powered by {paymentGateway} · SAGA distributed checkout
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
