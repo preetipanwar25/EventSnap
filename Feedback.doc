@@ -1,0 +1,87 @@
+Event Detail page allows adding mareketing videos to Ticket Buyer. It should have features specific to role.
+Booth Booking page is not displayed.
+Default view should be Ticket Buyer View. on Login other users should be presented with Role Specific View.
+Roles:-
+   Event Organizer.
+   Vendor (Booth, catering)
+   Sponsorer 
+   Ticket Buyer (Default View)
+   Media Marketing
+  Admin
+
+Overall Flow:-
+  Admin
+  ↓
+Approves Organizers
+  ↓
+
+Event Organizer
+  ↓
+Creates Event
+  ↓
+Publishes Event
+  ↓
+Invites Vendors
+  ↓
+Invites Sponsors
+  ↓
+Invites Media Marketing
+  ↓
+
+Vendor
+  ↓
+Applies For Booth
+  ↓
+Organizer Approves
+  ↓
+Vendor Payment
+  ↓
+Booth Assignment
+
+Sponsor
+  ↓
+View Sponsorship Packages
+  ↓
+Select Package
+  ↓
+Payment
+  ↓
+Organizer Approval
+
+Media Marketing
+  ↓
+Access Event Marketing Assets
+  ↓
+Run Campaigns
+  ↓
+Track Leads
+  ↓
+Report Analytics
+
+Ticket Buyer
+  ↓
+Browse Events
+  ↓
+Purchase Ticket
+  ↓
+Receive QR Code
+  ↓
+Attend Event
+
+Admin
+  ↓
+Monitor Entire Ecosystem
+
+Role:Event Organizer:
+  Actions: Create/Edit Event.
+    attributes: 
+       1. Event Name
+       2. Event Type(Community Events,Cultural and Arts Events,Entertainment Events,Sports and Recreation Events,Educational Events,Business and Professional Events,Government and Civic Events,Charity and Fundraising Events,Religious and Spiritual Events,Food and Beverage Events,Holiday and Seasonal Events,Environmental Events,Technology and Innovation Events,Health and Wellness Events  
+       3. Event Formats(In-person,Virtual,Hybrid)
+       4. Event Indoor/Outdoor
+       5. Event Free Admission/Ticketed
+       6. Open to all/Registration Based.
+                     
+                     
+                     
+  
