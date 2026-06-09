@@ -38,7 +38,8 @@ import {
   Edit2,
   ArrowLeft,
   Star,
-  Settings
+  Settings,
+  Search
 } from "lucide-react";
 
 // Types definition
@@ -46,7 +47,7 @@ interface UserProfile {
   id: string;
   name: string;
   email: string;
-  role: "ATTENDEE" | "ORGANIZER" | "VENDOR" | "SPONSOR" | "ADMIN";
+  role: "ATTENDEE" | "ORGANIZER" | "VENDOR" | "SPONSOR" | "ADMIN" | "VENUE_PROVIDER";
   status: "ACTIVE" | "SUSPENDED";
 }
 
@@ -191,6 +192,7 @@ interface Venue {
   id: string;
   providerId: string;
   name: string;
+  type: "Convention Center" | "Hotel" | "Banquet Hall" | "Stadium" | "Conference Room" | "Outdoor Venue";
   description: string;
   location: string;
   capacity: number;
@@ -433,35 +435,35 @@ const initialBooths: Booth[] = [
   { id: "bth-2", eventId: "evt-1", name: "Standard Booth #102", type: "STANDARD", category: "Apparel & Swag", price: 450, status: "SOLD", vendorBusinessName: "DevThreads Co.", paymentTerms: "FULL", amountPaid: 450 },
   { id: "bth-3", eventId: "evt-1", name: "Catering Spot #FT1", type: "FOOD_TRUCK", category: "Mexican", price: 600, status: "AVAILABLE" },
   { id: "bth-4", eventId: "evt-1", name: "Catering Spot #FT2", type: "FOOD_TRUCK", category: "Beverages", price: 500, status: "AVAILABLE" },
-  
+
   { id: "bth-5", eventId: "evt-2", name: "Merchandise Tent #M1", type: "STANDARD", category: "Crafts", price: 300, status: "AVAILABLE" },
   { id: "bth-6", eventId: "evt-2", name: "Gourmet Catering Spot #G1", type: "FOOD_TRUCK", category: "Italian", price: 700, status: "SOLD", vendorBusinessName: "Luigi's Woodfired Pizza", paymentTerms: "DEPOSIT", amountPaid: 175 },
   { id: "bth-7", eventId: "evt-2", name: "Beverage Booth #G2", type: "FOOD_TRUCK", category: "Beverages", price: 500, status: "AVAILABLE" },
-  
+
   { id: "bth-8", eventId: "evt-3", name: "Artisanal Cheese Stall #A1", type: "STANDARD", category: "Crafts", price: 400, status: "AVAILABLE" },
   { id: "bth-9", eventId: "evt-3", name: "Napa Bistro Spot #A2", type: "FOOD_TRUCK", category: "Italian", price: 750, status: "AVAILABLE" },
   { id: "bth-10", eventId: "evt-3", name: "Dessert Truck Spot #FT3", type: "FOOD_TRUCK", category: "Desserts", price: 550, status: "AVAILABLE" }
 ];
 
 const initialVendorProfiles: VendorProfile[] = [
-  { 
-    id: "vnd-1", 
-    businessName: "DevThreads Co.", 
-    ownerName: "Jane Smith", 
-    email: "jane@devthreads.com", 
-    phone: "+1 555-0192", 
-    category: "Apparel & Swag", 
+  {
+    id: "vnd-1",
+    businessName: "DevThreads Co.",
+    ownerName: "Jane Smith",
+    email: "jane@devthreads.com",
+    phone: "+1 555-0192",
+    category: "Apparel & Swag",
     status: "VERIFIED",
     availableDates: ["2026-06-25", "2026-07-12", "2026-08-05", "2026-09-20", "2026-10-10", "2026-10-20"],
     pricing: 300
   },
-  { 
-    id: "vnd-2", 
-    businessName: "Luigi's Woodfired Pizza", 
-    ownerName: "Luigi Rossini", 
-    email: "luigi@woodfiredpizza.it", 
-    phone: "+1 555-8833", 
-    category: "Italian", 
+  {
+    id: "vnd-2",
+    businessName: "Luigi's Woodfired Pizza",
+    ownerName: "Luigi Rossini",
+    email: "luigi@woodfiredpizza.it",
+    phone: "+1 555-8833",
+    category: "Italian",
     status: "VERIFIED",
     availableDates: ["2026-07-12", "2026-08-05", "2026-10-10", "2026-10-20"],
     pricing: 450
@@ -479,6 +481,7 @@ const initialVenues: Venue[] = [
     id: "vn-1",
     providerId: "vp-1",
     name: "San Francisco Center",
+    type: "Convention Center",
     description: "State-of-the-art modern convention center with high-density AV capabilities, configurable presentation rooms, and premium security controls.",
     location: "747 Howard St, San Francisco, CA 94103",
     capacity: 5000,
@@ -496,6 +499,7 @@ const initialVenues: Venue[] = [
     id: "vn-2",
     providerId: "vp-2",
     name: "Red Rocks Amphitheatre",
+    type: "Outdoor Venue",
     description: "World-famous outdoor geological open-air concert stage, providing unmatched natural acoustics and expansive amphitheater staging.",
     location: "18300 W Alameda Pkwy, Morrison, CO 80465",
     capacity: 9500,
@@ -513,6 +517,7 @@ const initialVenues: Venue[] = [
     id: "vn-3",
     providerId: "vp-3",
     name: "Napa Valley Vineyard Estate",
+    type: "Outdoor Venue",
     description: "Stunning boutique winery estate featuring scenic lawn settings, gourmet in-house catering services, and premium valet parking accommodations.",
     location: "1290 Rutherford Rd, Rutherford, CA 94573",
     capacity: 1200,
@@ -664,7 +669,7 @@ const initialReviews: Review[] = [
 
   const startDate = new Date("2026-06-01");
   const providers = ["vp-1", "vp-2", "vp-3"];
-  
+
   // Make sure each city in ZIP_LOOKUP has a corresponding venue
   cityKeys.forEach((zip, index) => {
     const zipData = ZIP_LOOKUP[zip];
@@ -674,6 +679,7 @@ const initialReviews: Review[] = [
         id: venueId,
         providerId: providers[index % providers.length],
         name: `${zipData.city} Grand Center`,
+        type: "Convention Center",
         description: `State-of-the-art modern events hall and convention center in ${zipData.city}, featuring high-speed amenities, AV setup, and extensive vendor staging.`,
         location: `${200 + index * 15} Main Street, ${zipData.city}, ${zipData.state} ${zip}`,
         capacity: 1000 + (index * 600) % 8000,
@@ -827,7 +833,7 @@ const normalizeDateToYmd = (dateStr: string): string => {
       const day = String(d.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
     }
-  } catch (e) {}
+  } catch (e) { }
   return "";
 };
 
@@ -900,9 +906,9 @@ const getDistanceInMiles = (lat1: number, lon1: number, lat2: number, lon2: numb
   const R = 3958.8; // Radius of the Earth in miles
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
@@ -912,6 +918,44 @@ export default function Home() {
   // Theme State
   const [theme, setTheme] = useState<"dark" | "light" | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // Global custom alert modal state
+  const [customAlert, setCustomAlert] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const nativeAlert = window.alert;
+      window.alert = (message: string) => {
+        setCustomAlert(message);
+      };
+      return () => {
+        window.alert = nativeAlert;
+      };
+    }
+  }, []);
+
+  const getAlertStyle = (msg: string) => {
+    const lower = msg.toLowerCase();
+    if (lower.includes("success") || lower.includes("verified") || lower.includes("successful") || lower.includes("✅") || lower.includes("🎉") || lower.includes("💰")) {
+      return {
+        icon: <Check className="w-5 h-5 text-emerald-400" />,
+        colorClass: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25",
+        title: "Success"
+      };
+    }
+    if (lower.includes("error") || lower.includes("denied") || lower.includes("failed") || lower.includes("invalid") || lower.includes("🔒") || lower.includes("warning")) {
+      return {
+        icon: <ShieldAlert className="w-5 h-5 text-rose-400" />,
+        colorClass: "text-rose-400 bg-rose-500/10 border-rose-500/25",
+        title: "Warning / Error"
+      };
+    }
+    return {
+      icon: <Info className="w-5 h-5 text-sky-400" />,
+      colorClass: "text-sky-400 bg-sky-500/10 border-sky-500/25",
+      title: "Notification"
+    };
+  };
 
   // Synchronize Theme
   useEffect(() => {
@@ -952,7 +996,7 @@ export default function Home() {
   const [booths, setBooths] = useState<Booth[]>(initialBooths);
   const [orders, setOrders] = useState<Order[]>([]);
   const [vendorProfiles, setVendorProfiles] = useState<VendorProfile[]>(initialVendorProfiles);
-  
+
   // Venue & Venue Provider States
   const [venueProviders, setVenueProviders] = useState<VenueProviderProfile[]>(() => {
     if (typeof window !== "undefined") {
@@ -983,7 +1027,7 @@ export default function Home() {
     }
     return initialVenueBookings;
   });
-  
+
   const [reviews, setReviews] = useState<Review[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("reviews");
@@ -1106,7 +1150,7 @@ export default function Home() {
 
     setReviews(prev => [...prev, newReview]);
     setShowReviewModal(false);
-    
+
     // Reset
     setReviewTargetType("EVENT");
     setReviewTargetId("");
@@ -1134,7 +1178,7 @@ export default function Home() {
       addSagaLog("Moderator-Service", `Automated scanner check complete. No new abusive reviews found.`, "success");
     }
   };
-  
+
   // Dynamic average rating calculators (ignores hidden or abusive reviews)
   const getAverageRating = (targetType: "EVENT" | "VENUE" | "VENDOR" | "SITE", targetId: string) => {
     const activeReviews = reviews.filter(
@@ -1150,7 +1194,7 @@ export default function Home() {
       r => r.targetType === targetType && r.targetId === targetId && r.status === "APPROVED"
     ).length;
   };
-  
+
   // Navigation & Tab state
   const [activeTab, setActiveTab] = useState<"catalog" | "my-tickets" | "admin" | "saga" | "venues" | "organizer" | "vendor" | "sponsor">("catalog");
   const [adminSubTab, setAdminSubTab] = useState<"directory" | "events" | "financials" | "reports" | "reviews">("directory");
@@ -1158,7 +1202,7 @@ export default function Home() {
   const [bookingMode, setBookingMode] = useState<"TICKET" | "BOOTH">("BOOTH");
 
   // User role state
-  const [currentUserRole, setCurrentUserRole] = useState<"ATTENDEE" | "ORGANIZER" | "VENDOR" | "SPONSOR" | "ADMIN">("ATTENDEE");
+  const [currentUserRole, setCurrentUserRole] = useState<"ATTENDEE" | "ORGANIZER" | "VENDOR" | "SPONSOR" | "ADMIN" | "VENUE_PROVIDER">("ATTENDEE");
 
   // Platform Users Directory
   const [users, setUsers] = useState<UserProfile[]>(() => {
@@ -1172,6 +1216,7 @@ export default function Home() {
       { id: "usr-3", name: "Luigi Rossini (Vendor)", email: "luigi@woodfiredpizza.it", role: "VENDOR", status: "ACTIVE" },
       { id: "usr-4", name: "Apex Sponsors (Sponsor)", email: "sponsor@apex.com", role: "SPONSOR", status: "ACTIVE" },
       { id: "usr-5", name: "System Admin (Admin)", email: "admin@auratickets.com", role: "ADMIN", status: "ACTIVE" },
+      { id: "usr-6", name: "Sarah Connor (Venue Provider)", email: "sarah@sfvenues.com", role: "VENUE_PROVIDER", status: "ACTIVE" },
     ];
   });
 
@@ -1292,8 +1337,8 @@ export default function Home() {
   // Marketing video: { [eventId]: objectURL }
   const [eventVideos, setEventVideos] = useState<Record<string, string>>({});
   const [videoUploadProgress, setVideoUploadProgress] = useState<number | null>(null);
-  const [videoUploadName, setVideoUploadName]   = useState<string>("");
-  const [videoUploadSize, setVideoUploadSize]   = useState<string>("");
+  const [videoUploadName, setVideoUploadName] = useState<string>("");
+  const [videoUploadSize, setVideoUploadSize] = useState<string>("");
   const [videoUploadError, setVideoUploadError] = useState<string>("");
 
   const handleVideoUpload = (file: File) => {
@@ -1380,10 +1425,15 @@ export default function Home() {
   const [orgSelectedVendorIds, setOrgSelectedVendorIds] = useState<string[]>([]);
   // Organizer edit event ID (if updating an event)
   const [orgEditingEventId, setOrgEditingEventId] = useState<string | null>(null);
-  
+
+  // Organizer listings search & filters state
+  const [orgListingsSearch, setOrgListingsSearch] = useState("");
+  const [orgListingsCategory, setOrgListingsCategory] = useState("ALL");
+  const [orgListingsStatus, setOrgListingsStatus] = useState("ALL");
+
   // Active Vendor Profile state
   const [activeVendorProfile, setActiveVendorProfile] = useState<VendorProfile | null>(null);
-  
+
   // Vendor Registration Form Wizard state
   const [vendorRegStep, setVendorRegStep] = useState<"form" | "otp">("form");
   const [regBusinessName, setRegBusinessName] = useState("");
@@ -1404,7 +1454,11 @@ export default function Home() {
 
 
   const [activeVenueProvider, setActiveVenueProvider] = useState<VenueProviderProfile | null>(null);
-  
+
+  // Venue Provider: Editing & Calendar Filter states
+  const [editingVenueId, setEditingVenueId] = useState<string | null>(null);
+  const [selectedCalVenueId, setSelectedCalVenueId] = useState<string>("ALL");
+
   // Venue Provider Registration State
   const [vpRegStep, setVpRegStep] = useState<"form" | "otp">("form");
   const [vpRegCompanyName, setVpRegCompanyName] = useState("");
@@ -1431,7 +1485,7 @@ export default function Home() {
   const [showSponsorModal, setShowSponsorModal] = useState(false);
   const [sponsorSelectedEvent, setSponsorSelectedEvent] = useState<Event | null>(null);
   const [sponsorSelectedPackage, setSponsorSelectedPackage] = useState<SponsorPackage | null>(null);
-  
+
   // Sponsor Application Form fields
   const [sponsorCompanyName, setSponsorCompanyName] = useState("");
   const [sponsorContactName, setSponsorContactName] = useState("");
@@ -1450,6 +1504,7 @@ export default function Home() {
 
   // New Venue Creation Form State
   const [newVenueName, setNewVenueName] = useState("");
+  const [newVenueType, setNewVenueType] = useState<"Convention Center" | "Hotel" | "Banquet Hall" | "Stadium" | "Conference Room" | "Outdoor Venue">("Convention Center");
   const [newVenueDesc, setNewVenueDesc] = useState("");
   const [newVenueLoc, setNewVenueLoc] = useState("");
   const [newVenueCapacity, setNewVenueCapacity] = useState("");
@@ -1462,7 +1517,7 @@ export default function Home() {
   const [newVenueZipcode, setNewVenueZipcode] = useState("");
   const [newVenueLat, setNewVenueLat] = useState("");
   const [newVenueLng, setNewVenueLng] = useState("");
-  
+
   // Interactive Calendar State
   const [currentCalMonth, setCurrentCalMonth] = useState(5); // June
   const [currentCalYear] = useState(2026);
@@ -1496,7 +1551,7 @@ export default function Home() {
   const [promoSuccess, setPromoSuccess] = useState<string | null>(null);
   const [paymentGateway, setPaymentGateway] = useState<"Stripe" | "PayPal">("Stripe");
   const [paymentTerms, setPaymentTerms] = useState<"FULL" | "DEPOSIT">("FULL");
-  
+
   // User Security State
   const [is2FaEnabled, setIs2FaEnabled] = useState(false);
   const [is2FaVerified, setIs2FaVerified] = useState(false);
@@ -1504,7 +1559,7 @@ export default function Home() {
   const [otpCode, setOtpCode] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
   const [temp2FaSecret, setTemp2FaSecret] = useState("JBSWY3DPEHPK3PXP"); // Seed secret
-  
+
   // Checkout & SAGA Orchestration State
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<"form" | "mfa" | "saga-running" | "success" | "failed">("form");
@@ -1513,7 +1568,7 @@ export default function Home() {
   const [sagaType, setSagaType] = useState<"TICKET" | "BOOTH" | "VENUE">("TICKET");
   const [simulatePaymentFailure, setSimulatePaymentFailure] = useState(false);
   const [newOrderId, setNewOrderId] = useState("");
-  
+
   // Search & Filter state variables
   const [searchQuery, setSearchQuery] = useState("");
   const [searchZip, setSearchZip] = useState("");
@@ -1621,7 +1676,7 @@ export default function Home() {
   const [newEventLat, setNewEventLat] = useState("");
   const [newEventLng, setNewEventLng] = useState("");
   const [newEventIsSponsored, setNewEventIsSponsored] = useState(false);
-  
+
   // Admin Booth Creator Form State
   const [adminBoothEventId, setAdminBoothEventId] = useState(initialEvents[0].id);
   const [adminBoothName, setAdminBoothName] = useState("");
@@ -1717,7 +1772,7 @@ export default function Home() {
   const pricingDetails = useMemo(() => {
     const activeEvent = detailPageEvent || selectedEvent;
     if (!activeEvent) return { subtotal: 0, discount: 0, total: 0, depositAmount: 0, remainingBalance: 0 };
-    
+
     let subtotal = 0;
     if (bookingMode === "TICKET") {
       let ticketPrice = activeEvent.price;
@@ -1742,7 +1797,7 @@ export default function Home() {
         }
       }
     }
-    
+
     const total = Math.max(0, subtotal - discount);
     const depositAmount = Math.round(total * 0.25);
     const remainingBalance = total - depositAmount;
@@ -1853,13 +1908,13 @@ export default function Home() {
         setActiveVendorProfile(verifiedProfile);
         setPendingVendorProfile(null);
         setVendorRegStep("form");
-        
+
         // Populate edit profile values
         setEditOwnerName(verifiedProfile.ownerName);
         setEditEmail(verifiedProfile.email);
         setEditPhone(verifiedProfile.phone);
         setEditCategory(verifiedProfile.category);
-        
+
         alert("Business Profile verified! You are now authorized to lease event spaces.");
       }
     } else {
@@ -1979,7 +2034,7 @@ export default function Home() {
     }
   };
 
-  // Venue Provider: List New Venue Action
+  // Venue Provider: List New Venue / Update Venue Action
   const handleCreateVenue = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeVenueProvider) return;
@@ -1988,29 +2043,75 @@ export default function Home() {
       return;
     }
 
-    const newVn: Venue = {
-      id: `vn-${venues.length + 1}`,
-      providerId: activeVenueProvider.id,
-      name: newVenueName,
-      description: newVenueDesc || "No description provided.",
-      location: newVenueLoc,
-      capacity: parseInt(newVenueCapacity),
-      parkingSpots: parseInt(newVenueParking),
-      services: newVenueServices,
-      availableDates: newVenueDates,
-      imageUrl: newVenueImageUrl || "https://images.unsplash.com/photo-1519750157634-b6d493a0f77c?w=800&auto=format&fit=crop&q=80",
-      city: newVenueCity || undefined,
-      state: newVenueState || undefined,
-      zipcode: newVenueZipcode || undefined,
-      latitude: newVenueLat ? parseFloat(newVenueLat) : undefined,
-      longitude: newVenueLng ? parseFloat(newVenueLng) : undefined
-    };
+    if (editingVenueId) {
+      // Conflict detection: verify if any dates being removed are currently booked
+      const originalVenue = venues.find(v => v.id === editingVenueId);
+      if (originalVenue) {
+        const removedDates = originalVenue.availableDates.filter(d => !newVenueDates.includes(d));
+        const conflictingBookings = venueBookings.filter(b =>
+          b.venueId === editingVenueId &&
+          b.status === "CONFIRMED" &&
+          removedDates.includes(b.date)
+        );
 
-    setVenues(prev => [...prev, newVn]);
-    alert(`Venue "${newVenueName}" successfully listed!`);
+        if (conflictingBookings.length > 0) {
+          const conflictList = conflictingBookings.map(b => `"${b.eventTitle}" on ${b.date}`).join(", ");
+          alert(`Conflict Detected: You cannot remove availability for dates that have confirmed bookings. Active bookings: ${conflictList}`);
+          return;
+        }
+      }
+
+      const updatedVenues = venues.map(vn => {
+        if (vn.id === editingVenueId) {
+          return {
+            ...vn,
+            name: newVenueName,
+            type: newVenueType,
+            description: newVenueDesc || "No description provided.",
+            location: newVenueLoc,
+            capacity: parseInt(newVenueCapacity),
+            parkingSpots: parseInt(newVenueParking),
+            services: newVenueServices,
+            availableDates: newVenueDates,
+            imageUrl: newVenueImageUrl || "https://images.unsplash.com/photo-1519750157634-b6d493a0f77c?w=800&auto=format&fit=crop&q=80",
+            city: newVenueCity || undefined,
+            state: newVenueState || undefined,
+            zipcode: newVenueZipcode || undefined,
+            latitude: newVenueLat ? parseFloat(newVenueLat) : undefined,
+            longitude: newVenueLng ? parseFloat(newVenueLng) : undefined
+          };
+        }
+        return vn;
+      });
+      setVenues(updatedVenues);
+      alert(`Venue "${newVenueName}" successfully updated!`);
+      setEditingVenueId(null);
+    } else {
+      const newVn: Venue = {
+        id: `vn-${venues.length + 1}`,
+        providerId: activeVenueProvider.id,
+        name: newVenueName,
+        type: newVenueType,
+        description: newVenueDesc || "No description provided.",
+        location: newVenueLoc,
+        capacity: parseInt(newVenueCapacity),
+        parkingSpots: parseInt(newVenueParking),
+        services: newVenueServices,
+        availableDates: newVenueDates,
+        imageUrl: newVenueImageUrl || "https://images.unsplash.com/photo-1519750157634-b6d493a0f77c?w=800&auto=format&fit=crop&q=80",
+        city: newVenueCity || undefined,
+        state: newVenueState || undefined,
+        zipcode: newVenueZipcode || undefined,
+        latitude: newVenueLat ? parseFloat(newVenueLat) : undefined,
+        longitude: newVenueLng ? parseFloat(newVenueLng) : undefined
+      };
+      setVenues(prev => [...prev, newVn]);
+      alert(`Venue "${newVenueName}" successfully listed!`);
+    }
 
     // Reset Form
     setNewVenueName("");
+    setNewVenueType("Convention Center");
     setNewVenueDesc("");
     setNewVenueLoc("");
     setNewVenueCapacity("");
@@ -2031,7 +2132,7 @@ export default function Home() {
     setCheckoutStep("saga-running");
     setSagaType("VENUE");
     setActiveTab("saga");
-    
+
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     setSagaState("order-created");
@@ -2054,7 +2155,7 @@ export default function Home() {
 
     setSagaState("payment-initiated");
     addSagaLog("Billing-Service", `Generating invoice for lease listing...`, "info");
-    addSagaLog("Billing-Service", `Pre-authorizing venue lease fee. Transaction cleared. Reference vn_txn_${Math.floor(Math.random()*1000000)}`, "success");
+    addSagaLog("Billing-Service", `Pre-authorizing venue lease fee. Transaction cleared. Reference vn_txn_${Math.floor(Math.random() * 1000000)}`, "success");
     addSagaLog("Kafka-Broker", "Event [venue.billing.cleared] published to 'venue-events' topic.", "event");
     await delay(1200);
 
@@ -2092,7 +2193,7 @@ export default function Home() {
             const day = String(parsed.getDate()).padStart(2, "0");
             return `${y}-${m}-${day}`;
           }
-        } catch (err) {}
+        } catch (err) { }
         return d.trim().toLowerCase();
       };
 
@@ -2155,7 +2256,7 @@ export default function Home() {
             const day = String(parsed.getDate()).padStart(2, "0");
             return `${y}-${m}-${day}`;
           }
-        } catch (err) {}
+        } catch (err) { }
         return d;
       };
 
@@ -2214,9 +2315,63 @@ export default function Home() {
     const newDate = prompt(`Enter a date for the duplicated event (Original: ${originalEvent.date}):`, originalEvent.date);
     if (!newDate) return;
 
+    const normalizeDate = (d: string) => {
+      try {
+        const parsed = new Date(d);
+        if (!isNaN(parsed.getTime())) {
+          const y = parsed.getFullYear();
+          const m = String(parsed.getMonth() + 1).padStart(2, "0");
+          const day = String(parsed.getDate()).padStart(2, "0");
+          return `${y}-${m}-${day}`;
+        }
+      } catch (err) { }
+      return d.trim().toLowerCase();
+    };
+
+    const normalizedNewDate = normalizeDate(newDate);
+
+    // Conflict Check for Duplicate
+    if (originalEvent.venueId) {
+      const vn = venues.find(v => v.id === originalEvent.venueId);
+      if (vn) {
+        const isAvailable = vn.availableDates.some(availDate => normalizeDate(availDate) === normalizedNewDate);
+        const isAlreadyBooked = venueBookings.some(b =>
+          b.venueId === vn.id &&
+          normalizeDate(b.date) === normalizedNewDate &&
+          b.status === "CONFIRMED"
+        );
+
+        if (!isAvailable) {
+          alert(`Warning: The venue "${vn.name}" does not list availability for date "${newDate}". Available dates: ${vn.availableDates.join(", ")}`);
+          return;
+        }
+
+        if (isAlreadyBooked) {
+          alert(`Error: The venue "${vn.name}" is already booked on "${newDate}". Cannot duplicate event to this date.`);
+          return;
+        }
+      }
+    }
+
+    const tempEventId = `evt-${Date.now()}`;
+
+    if (originalEvent.venueId) {
+      // Create booking record for duplicated event
+      const bookingId = `vb-${venueBookings.length + 1}`;
+      const newBooking: VenueBooking = {
+        id: bookingId,
+        venueId: originalEvent.venueId,
+        eventId: tempEventId,
+        eventTitle: `Copy of ${originalEvent.title}`,
+        date: normalizedNewDate,
+        status: "CONFIRMED"
+      };
+      setVenueBookings(prev => [...prev, newBooking]);
+    }
+
     const duplicated: Event = {
       ...originalEvent,
-      id: `evt-${Date.now()}`,
+      id: tempEventId,
       title: `Copy of ${originalEvent.title}`,
       date: newDate,
       ticketsSold: 0,
@@ -2241,8 +2396,8 @@ export default function Home() {
         const newStatus = u.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
         addSagaLog("Admin-Service", `User [${u.name}] status changed to [${newStatus}].`, "info");
         addNotification(
-          newStatus === "SUSPENDED" ? "Account Suspended" : "Account Activated", 
-          `Your account has been ${newStatus.toLowerCase()} by the system administrator.`, 
+          newStatus === "SUSPENDED" ? "Account Suspended" : "Account Activated",
+          `Your account has been ${newStatus.toLowerCase()} by the system administrator.`,
           u.role
         );
         return { ...u, status: newStatus };
@@ -2301,9 +2456,9 @@ export default function Home() {
           // Adjust class sold
           let updatedClasses = e.ticketClasses;
           if (e.ticketClasses && order.ticketClass) {
-            updatedClasses = e.ticketClasses.map(tc => 
-              tc.name === order.ticketClass 
-                ? { ...tc, sold: Math.max(0, tc.sold - order.quantity) } 
+            updatedClasses = e.ticketClasses.map(tc =>
+              tc.name === order.ticketClass
+                ? { ...tc, sold: Math.max(0, tc.sold - order.quantity) }
                 : tc
             );
           }
@@ -2328,16 +2483,16 @@ export default function Home() {
 
     // 3. Adjust promo usage
     if (order.promoApplied) {
-      setPromoCodes(prev => prev.map(p => 
-        p.code.toUpperCase() === order.promoApplied!.toUpperCase() 
-          ? { ...p, usageCount: Math.max(0, p.usageCount - 1) } 
+      setPromoCodes(prev => prev.map(p =>
+        p.code.toUpperCase() === order.promoApplied!.toUpperCase()
+          ? { ...p, usageCount: Math.max(0, p.usageCount - 1) }
           : p
       ));
     }
 
     // 4. Log compensating transactions in SAGA console
     addSagaLog("Order-Service", `Refund requested for Order: ${order.id}. Commencing SAGA Compensating rollback...`, "info");
-    addSagaLog("Payment-Service", `Refunding charge $${order.totalAmount} to customer. Reference ref_stripe_${Math.floor(Math.random()*1000000)}`, "success");
+    addSagaLog("Payment-Service", `Refunding charge $${order.totalAmount} to customer. Reference ref_stripe_${Math.floor(Math.random() * 1000000)}`, "success");
     addSagaLog("Kafka-Broker", "Event [payment.refunded] published to 'payment-events' topic.", "event");
     if (order.type === "TICKET") {
       addSagaLog("Ticket-Service", `Restored ${order.quantity} ticket inventory for event: ${order.eventTitle}`, "success");
@@ -2452,7 +2607,7 @@ export default function Home() {
 
     setBooths(prev => [...prev, created]);
     alert("New booth slot successfully created and allocated to event!");
-    
+
   };
 
   // Organizer: Register Profile Action
@@ -2499,7 +2654,7 @@ export default function Home() {
         setActiveOrganizerProfile(verifiedProfile);
         setPendingOrganizerProfile(null);
         setOrganizerRegStep("form");
-        
+
         alert("Organizer Profile verified! You are now authorized to publish and update events.");
       }
     } else {
@@ -2605,7 +2760,7 @@ export default function Home() {
       alert("Please sign in as an organizer first.");
       return;
     }
-    
+
     if (enableTiers) {
       if (!newEventTitle || !newEventDate || !gaPriceForm || !gaInvForm) {
         alert("Please fill in all required fields (GA Price & Inventory are required when tiers are enabled).");
@@ -2637,16 +2792,16 @@ export default function Home() {
             const day = String(parsed.getDate()).padStart(2, "0");
             return `${y}-${m}-${day}`;
           }
-        } catch (err) {}
+        } catch (err) { }
         return d.trim().toLowerCase();
       };
 
       const normalizedEventDate = normalizeDate(newEventDate);
       const isAvailable = vn.availableDates.some(availDate => normalizeDate(availDate) === normalizedEventDate);
-      
-      const isAlreadyBooked = venueBookings.some(b => 
-        b.venueId === vn.id && 
-        normalizeDate(b.date) === normalizedEventDate && 
+
+      const isAlreadyBooked = venueBookings.some(b =>
+        b.venueId === vn.id &&
+        normalizeDate(b.date) === normalizedEventDate &&
         b.status === "CONFIRMED" &&
         b.eventId !== orgEditingEventId
       );
@@ -2672,7 +2827,7 @@ export default function Home() {
 
     const targetEventId = orgEditingEventId || `evt-${events.length + 1}`;
     const calculatedPrice = enableTiers ? (parseFloat(gaPriceForm) || 0) : parseFloat(newEventPrice);
-    const calculatedInventory = enableTiers 
+    const calculatedInventory = enableTiers
       ? ((parseInt(ebInv) || 0) + (parseInt(gaInvForm) || 0) + (parseInt(vipInvForm) || 0))
       : parseInt(newEventInventory);
 
@@ -2724,13 +2879,13 @@ export default function Home() {
             const day = String(parsed.getDate()).padStart(2, "0");
             return `${y}-${m}-${day}`;
           }
-        } catch (err) {}
+        } catch (err) { }
         return d;
       };
 
       const ymdDate = parseDateToYmd(newEventDate);
       const bookingId = `vb-${venueBookings.length + 1}`;
-      
+
       setVenueBookings(prev => {
         const filtered = prev.filter(b => b.eventId !== targetEventId);
         const newBooking: VenueBooking = {
@@ -2755,7 +2910,7 @@ export default function Home() {
         const vendorPrice = vendor?.pricing || 250;
         const vendorCategory = vendor?.category || "Promotional";
         const isFood = ["Mexican", "Italian", "Desserts", "Beverages"].includes(vendorCategory);
-        
+
         return {
           id: `bth-org-${targetEventId}-${idx}-${Date.now()}`,
           eventId: targetEventId,
@@ -2797,7 +2952,7 @@ export default function Home() {
     setGaInvForm("");
     setVipPriceForm("");
     setVipInvForm("");
-    
+
     alert("Event saved successfully!");
   };
 
@@ -2807,7 +2962,7 @@ export default function Home() {
     setCheckoutStep("saga-running");
     setSagaType(bookingMode);
     setActiveTab("saga");
-    
+
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     if (bookingMode === "TICKET") {
@@ -2819,7 +2974,7 @@ export default function Home() {
 
       setSagaState("tickets-reserved");
       addSagaLog("Ticket-Service", `Consuming order event. Allocating event inventory for: ${eventObj.title}`, "info");
-      
+
       let hasInventory = true;
       let availStockText = "";
       if (eventObj.ticketClasses) {
@@ -2879,13 +3034,13 @@ export default function Home() {
         await delay(1200);
         rollbackSaga("payment-failure", orderId, itemQuantity, eventObj, appliedCode);
       } else {
-        addSagaLog("Payment-Service", `Payment transaction cleared. Reference ch_stripe_${Math.floor(Math.random()*1000000)}`, "success");
+        addSagaLog("Payment-Service", `Payment transaction cleared. Reference ch_stripe_${Math.floor(Math.random() * 1000000)}`, "success");
         addSagaLog("Kafka-Broker", "Event [payment.succeeded] published to 'payment-events' topic.", "event");
         await delay(1200);
 
         setSagaState("completed");
         addSagaLog("Order-Service", `Consuming payment cleared event. Setting order state to [PAID]. SAGA complete.`, "success");
-        
+
         const finalOrder: Order = {
           id: orderId,
           eventId: eventObj.id,
@@ -2904,7 +3059,7 @@ export default function Home() {
 
         addSagaLog("Notification-Service", `Sending email and SMS booking tokens...`, "info");
         addSagaLog("Notification-Service", `[EMAIL SENT] Sent HTML ticket attachment.`, "success");
-        addSagaLog("Notification-Service", `[SMS SENT] Twilio booking token dispatched: TKT-${Math.floor(Math.random()*1000000)}`, "success");
+        addSagaLog("Notification-Service", `[SMS SENT] Twilio booking token dispatched: TKT-${Math.floor(Math.random() * 1000000)}`, "success");
 
         setCheckoutStep("success");
         setIsCheckingOut(false);
@@ -2915,7 +3070,7 @@ export default function Home() {
 
       setSagaState("order-created");
       addSagaLog("Order-Service", `Received vendor booth booking checkout. Order ID: ${orderId}`, "info");
-      
+
       // Verification check of vendor profile status
       addSagaLog("Order-Service", `Verifying active vendor registration state for Business: ${activeVendorProfile.businessName}...`, "info");
       if (activeVendorProfile.status !== "VERIFIED") {
@@ -2930,7 +3085,7 @@ export default function Home() {
 
       setSagaState("tickets-reserved");
       addSagaLog("Booth-Service", `Consuming event. Checking slot availability: ${selectedBooth.name}`, "info");
-      
+
       const freshBooth = booths.find(b => b.id === selectedBooth.id);
       if (!freshBooth || freshBooth.status !== "AVAILABLE") {
         addSagaLog("Booth-Service", `Booth booking conflict: Slot is already reserved or booked.`, "error");
@@ -2969,19 +3124,19 @@ export default function Home() {
         await delay(1200);
         rollbackSaga("payment-failure", orderId, 1, eventObj, appliedCode);
       } else {
-        addSagaLog("Payment-Service", `Vendor payment cleared. Reference ch_stripe_vendor_${Math.floor(Math.random()*1000000)}`, "success");
+        addSagaLog("Payment-Service", `Vendor payment cleared. Reference ch_stripe_vendor_${Math.floor(Math.random() * 1000000)}`, "success");
         addSagaLog("Kafka-Broker", "Event [payment.succeeded] published to 'payment-events' topic.", "event");
         await delay(1200);
 
         setSagaState("completed");
         addSagaLog("Booth-Service", `Consuming payment success. Setting booth status to [SOLD] in MySQL.`, "success");
-        setBooths(prev => prev.map(b => b.id === selectedBooth.id ? { 
-          ...b, 
+        setBooths(prev => prev.map(b => b.id === selectedBooth.id ? {
+          ...b,
           status: "SOLD",
           paymentTerms,
           amountPaid: chargeAmount
         } : b));
-        
+
         addSagaLog("Order-Service", `Saga finalized. Booth order updated to [PAID].`, "success");
 
         const finalOrder: Order = {
@@ -3056,7 +3211,7 @@ export default function Home() {
 
     // Cancel Order
     addSagaLog("Order-Service", `Marking order status to [FAILED]. SAGA compensation completed.`, "error");
-    
+
     const failedOrder: Order = {
       id: orderId,
       eventId: eventObj.id,
@@ -3154,17 +3309,15 @@ export default function Home() {
             <>
               <button
                 onClick={() => setActiveTab("catalog")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
-                  activeTab === "catalog" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${activeTab === "catalog" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                  }`}
               >
                 Catalog
               </button>
               <button
                 onClick={() => setActiveTab("my-tickets")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom flex items-center gap-1.5 ${
-                  activeTab === "my-tickets" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom flex items-center gap-1.5 ${activeTab === "my-tickets" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                  }`}
               >
                 My Orders & Profile
                 {orders.length > 0 && (
@@ -3177,22 +3330,39 @@ export default function Home() {
           )}
 
           {currentUserRole === "ORGANIZER" && (
+            <>
+              <button
+                onClick={() => setActiveTab("organizer")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${activeTab === "organizer" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                  }`}
+              >
+                Organizer Console
+              </button>
+              <button
+                onClick={() => setActiveTab("venues")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${activeTab === "venues" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                  }`}
+              >
+                Venue Management
+              </button>
+            </>
+          )}
+
+          {currentUserRole === "VENUE_PROVIDER" && (
             <button
-              onClick={() => setActiveTab("organizer")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
-                activeTab === "organizer" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-              }`}
+              onClick={() => setActiveTab("venues")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${activeTab === "venues" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
             >
-              Organizer Console
+              Venue Owner Console
             </button>
           )}
 
           {currentUserRole === "VENDOR" && (
             <button
               onClick={() => setActiveTab("vendor")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
-                activeTab === "vendor" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${activeTab === "vendor" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
             >
               Vendor Dashboard
             </button>
@@ -3201,9 +3371,8 @@ export default function Home() {
           {currentUserRole === "SPONSOR" && (
             <button
               onClick={() => setActiveTab("sponsor")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
-                activeTab === "sponsor" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${activeTab === "sponsor" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                }`}
             >
               Sponsor Dashboard
             </button>
@@ -3213,17 +3382,15 @@ export default function Home() {
             <>
               <button
                 onClick={() => setActiveTab("admin")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${
-                  activeTab === "admin" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom ${activeTab === "admin" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                  }`}
               >
                 Admin Control
               </button>
               <button
                 onClick={() => setActiveTab("saga")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom flex items-center gap-1.5 ${
-                  activeTab === "saga" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all-custom flex items-center gap-1.5 ${activeTab === "saga" ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                  }`}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${sagaState !== "idle" && sagaState !== "completed" && sagaState !== "rollback-complete" ? "animate-spin text-sky-400" : ""}`} />
                 Saga Console
@@ -3234,7 +3401,7 @@ export default function Home() {
 
         {/* Right side: Login role selector, Notifications, Theme toggle */}
         <div className="flex items-center gap-3 relative">
-          
+
           {/* Notifications Dropdown */}
           <div className="relative">
             <button
@@ -3275,11 +3442,10 @@ export default function Home() {
                           onClick={() => {
                             setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item));
                           }}
-                          className={`p-2.5 rounded-lg border transition cursor-pointer ${
-                            n.read 
-                              ? "bg-transparent border-[var(--glass-border)] text-[var(--text-secondary)]" 
-                              : "bg-sky-500/10 border-sky-500/20 text-[var(--text-primary)] font-semibold"
-                          }`}
+                          className={`p-2.5 rounded-lg border transition cursor-pointer ${n.read
+                            ? "bg-transparent border-[var(--glass-border)] text-[var(--text-secondary)]"
+                            : "bg-sky-500/10 border-sky-500/20 text-[var(--text-primary)] font-semibold"
+                            }`}
                         >
                           <div className="flex justify-between items-start">
                             <span className="font-bold text-xs">{n.title}</span>
@@ -3299,7 +3465,7 @@ export default function Home() {
             <select
               value={currentUserRole}
               onChange={(e) => {
-                const selected = e.target.value as "ATTENDEE" | "ORGANIZER" | "VENDOR" | "SPONSOR" | "ADMIN";
+                const selected = e.target.value as "ATTENDEE" | "ORGANIZER" | "VENDOR" | "SPONSOR" | "ADMIN" | "VENUE_PROVIDER";
                 setCurrentUserRole(selected);
                 if (selected === "ATTENDEE") {
                   setActiveTab("catalog");
@@ -3309,6 +3475,18 @@ export default function Home() {
                     setActiveOrganizerProfile({
                       id: "org-sarah",
                       organizationName: "Sarah Connor Events",
+                      contactName: "Sarah Connor",
+                      email: "sarah@sfvenues.com",
+                      phone: "+1 555-9011",
+                      status: "VERIFIED"
+                    });
+                  }
+                } else if (selected === "VENUE_PROVIDER") {
+                  setActiveTab("venues");
+                  if (!activeVenueProvider || activeVenueProvider.id !== "vp-1") {
+                    setActiveVenueProvider({
+                      id: "vp-1",
+                      companyName: "SF Bay Area Venues",
                       contactName: "Sarah Connor",
                       email: "sarah@sfvenues.com",
                       phone: "+1 555-9011",
@@ -3339,6 +3517,7 @@ export default function Home() {
             >
               <option value="ATTENDEE" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>👤 Login: Attendee (Jane)</option>
               <option value="ORGANIZER" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>🏢 Login: Event Organizer (Sarah)</option>
+              <option value="VENUE_PROVIDER" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>🏰 Login: Venue Owner (Sarah)</option>
               <option value="VENDOR" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>🎪 Login: Food/Tech Vendor (Luigi)</option>
               <option value="SPONSOR" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>🎗️ Login: Brand Sponsor (Apex)</option>
               <option value="ADMIN" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>🛡️ Login: Platform Admin</option>
@@ -3353,11 +3532,10 @@ export default function Home() {
               localStorage.setItem("otpVerificationEnabled", String(newVal));
               addSagaLog("System-Config", `OTP Verification is now ${newVal ? "ENABLED" : "DISABLED"} globally.`, newVal ? "success" : "info");
             }}
-            className={`flex items-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-bold font-outfit transition-colors shadow-sm cursor-pointer ${
-              otpVerificationEnabled
-                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
-                : "bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20"
-            }`}
+            className={`flex items-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-bold font-outfit transition-colors shadow-sm cursor-pointer ${otpVerificationEnabled
+              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+              : "bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20"
+              }`}
             title="Toggle system-wide OTP verification requirement"
           >
             <Settings className="w-3.5 h-3.5" />
@@ -3377,7 +3555,7 @@ export default function Home() {
 
       {/* Main Layout Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 mt-8">
-        
+
         {/* TAB 1: EVENT CATALOG & PURCHASING */}
         {activeTab === "catalog" && (
           <div className="space-y-6">
@@ -3440,11 +3618,10 @@ export default function Home() {
                                 </span>
                               </div>
                               <div className="absolute bottom-2 right-2">
-                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full font-mono ${
-                                  available <= 0 ? "bg-rose-500 text-white" :
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full font-mono ${available <= 0 ? "bg-rose-500 text-white" :
                                   available <= 15 ? "bg-amber-500 text-slate-950" :
-                                  "bg-emerald-500/90 text-white"
-                                }`}>
+                                    "bg-emerald-500/90 text-white"
+                                  }`}>
                                   {available <= 0 ? "SOLD OUT" : `${available} left`}
                                 </span>
                               </div>
@@ -3477,448 +3654,215 @@ export default function Home() {
 
             {/* ── MAIN 3-COLUMN GRID ── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            
-            {/* Event List & Catalog Details */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-3xl font-bold font-display tracking-tight text-[var(--text-primary)] font-outfit">Upcoming Events</h2>
-                  <p className="text-[var(--text-secondary)] text-sm mt-1">Select an event below to configure ticket options or vendor promotional booths.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-lg p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setCatalogView("grid")}
-                      className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs transition-all flex items-center gap-1 ${
-                        catalogView === "grid"
-                          ? "bg-sky-500 text-white shadow-sm font-medium"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                      title="Grid View"
-                    >
-                      <Grid className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Grid</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCatalogView("calendar")}
-                      className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs transition-all flex items-center gap-1 ${
-                        catalogView === "calendar"
-                          ? "bg-sky-500 text-white shadow-sm font-medium"
-                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                      title="Calendar View"
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Calendar</span>
-                    </button>
-                  </div>
-                  <span className="text-xs bg-[var(--input-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] px-3 py-1.5 rounded-lg font-mono">
-                    Total: {filteredEvents.length} / {events.length} Events
-                  </span>
-                </div>
-              </div>
 
-              {/* Premium Search & Filter Panel */}
-              <div className="glass rounded-2xl border border-[var(--glass-border)] p-4 space-y-4">
-                <div className="flex flex-col md:flex-row gap-3">
-                  {/* Keyword search input */}
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by title, category, keyword..."
-                      className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl py-2.5 pl-4 pr-10 text-xs text-[var(--text-primary)] placeholder-[var(--text-secondary)]/55 focus:outline-none focus:border-sky-500"
-                    />
-                    {searchQuery && (
+              {/* Event List & Catalog Details */}
+              <div className="lg:col-span-2 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-3xl font-bold font-display tracking-tight text-[var(--text-primary)] font-outfit">Upcoming Events</h2>
+                    <p className="text-[var(--text-secondary)] text-sm mt-1">Select an event below to configure ticket options or vendor promotional booths.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-lg p-0.5">
                       <button
                         type="button"
-                        onClick={() => setSearchQuery("")}
-                        className="absolute right-3 top-3 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                        onClick={() => setCatalogView("grid")}
+                        className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs transition-all flex items-center gap-1 ${catalogView === "grid"
+                          ? "bg-sky-500 text-white shadow-sm font-medium"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                          }`}
+                        title="Grid View"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <Grid className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Grid</span>
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => setCatalogView("calendar")}
+                        className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs transition-all flex items-center gap-1 ${catalogView === "calendar"
+                          ? "bg-sky-500 text-white shadow-sm font-medium"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                          }`}
+                        title="Calendar View"
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Calendar</span>
+                      </button>
+                    </div>
+                    <span className="text-xs bg-[var(--input-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] px-3 py-1.5 rounded-lg font-mono">
+                      Total: {filteredEvents.length} / {events.length} Events
+                    </span>
                   </div>
+                </div>
 
-                  {/* Quick Filters Toggles */}
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleToggleGeoLocation}
-                      className={`px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all-custom ${
-                        searchUseGeo
+                {/* Premium Search & Filter Panel */}
+                <div className="glass rounded-2xl border border-[var(--glass-border)] p-4 space-y-4">
+                  <div className="flex flex-col md:flex-row gap-3">
+                    {/* Keyword search input */}
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search by title, category, keyword..."
+                        className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl py-2.5 pl-4 pr-10 text-xs text-[var(--text-primary)] placeholder-[var(--text-secondary)]/55 focus:outline-none focus:border-sky-500"
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-3 top-3 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Quick Filters Toggles */}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleToggleGeoLocation}
+                        className={`px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all-custom ${searchUseGeo
                           ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
                           : "border-[var(--glass-border)] bg-[var(--input-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      {isGeoLoading ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <MapPin className="w-3.5 h-3.5" />
-                      )}
-                      {searchUseGeo ? `Near Me (${searchRadius}mi)` : "Near Me"}
-                    </button>
-
-                    {(searchQuery || searchCity || searchState || searchZip || searchDateStart || searchDateEnd || searchUseGeo) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSearchQuery("");
-                          setSearchCity("");
-                          setSearchState("");
-                          setSearchZip("");
-                          setSearchDateStart("");
-                          setSearchDateEnd("");
-                          setSearchUseGeo(false);
-                          setUserCoords(null);
-                        }}
-                        className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1"
-                        title="Clear Filters"
-                      >
-                        <RefreshCw className="w-3 h-3" /> Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Collapsible Advanced Filters */}
-                <div className="border-t border-[var(--glass-border)] pt-3 space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">City</label>
-                      <input
-                        type="text"
-                        value={searchCity}
-                        onChange={(e) => setSearchCity(e.target.value)}
-                        placeholder="e.g. San Francisco"
-                        className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">State</label>
-                      <select
-                        value={searchState}
-                        onChange={(e) => setSearchState(e.target.value)}
-                        className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-sans"
-                      >
-                        {US_STATES.map((st) => (
-                          <option key={st.code} value={st.code} className="bg-[var(--node-bg)] text-[var(--text-primary)]">
-                            {st.code ? `${st.code} - ${st.name}` : st.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Zipcode</label>
-                      <input
-                        type="text"
-                        value={searchZip}
-                        onChange={(e) => setSearchZip(e.target.value)}
-                        placeholder="e.g. 94103"
-                        maxLength={5}
-                        className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                    {/* Date Range Pickers */}
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block font-semibold">Date Range</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="date"
-                          value={searchDateStart}
-                          onChange={(e) => setSearchDateStart(e.target.value)}
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-[10px] text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-sans"
-                        />
-                        <input
-                          type="date"
-                          value={searchDateEnd}
-                          onChange={(e) => setSearchDateEnd(e.target.value)}
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-[10px] text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-sans"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Radius Slider for Geolocation */}
-                    {searchUseGeo && (
-                      <div className="space-y-1 bg-[var(--glass-bg)] border border-[var(--glass-border)] p-2 rounded-xl">
-                        <div className="flex justify-between text-[9px] font-mono text-[var(--text-secondary)]">
-                          <span>Search Radius:</span>
-                          <span className="font-bold text-sky-400">{searchRadius} miles</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="5"
-                          max="500"
-                          step="5"
-                          value={searchRadius}
-                          onChange={(e) => setSearchRadius(parseInt(e.target.value))}
-                          className="w-full h-1 bg-[var(--glass-border)] rounded-lg appearance-none cursor-pointer accent-sky-500"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Event Cards Grid */}
-              {/* Event Cards Grid */}
-              {catalogView === "grid" && (
-                filteredEvents.length === 0 ? (
-                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-12 text-center text-[var(--text-secondary)] space-y-4">
-                    <Info className="w-12 h-12 text-slate-600 mx-auto" />
-                    <div>
-                      <h3 className="text-lg font-semibold text-[var(--text-primary)]">No events match your criteria</h3>
-                      <p className="text-sm text-[var(--text-secondary)] mt-1">Adjust search parameters or clear filters to view events.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {filteredEvents.map(event => {
-                      const availableStock = event.ticketInventory - event.ticketsSold;
-                      const percentSold = Math.min(100, Math.round((event.ticketsSold / event.ticketInventory) * 100));
-                      const isSelected = selectedEvent?.id === event.id;
-
-                      return (
-                        <div
-                          key={event.id}
-                          onClick={() => {
-                            setSelectedEvent(event);
-                            setTicketQuantity(1);
-                            setSelectedBooth(null);
-                            setAppliedPromo("");
-                            setPromoSuccess(null);
-                            setPromoError(null);
-                            setBoothCategoryFilter("ALL");
-                            setBoothTypeFilter("ALL");
-                            setDetailPageEvent(event);
-                            setShowEventDetailPage(true);
-                          }}
-                          className={`group rounded-2xl overflow-hidden glass-card cursor-pointer border transition-all-custom duration-300 hover:scale-[1.02] hover:shadow-2xl ${
-                            isSelected 
-                              ? "border-sky-500 shadow-lg shadow-sky-500/10 scale-[1.01]" 
-                              : event.isSponsored
-                                ? "border-amber-500/40 shadow-lg shadow-amber-500/5 bg-gradient-to-br from-[var(--glass-card-bg)] to-amber-500/5 hover:border-amber-400"
-                                : "border-[var(--card-border)] hover:border-sky-500/30 hover:shadow-sky-500/5"
                           }`}
-                        >
-                          <div className="relative h-44 w-full bg-[var(--input-bg)] overflow-hidden">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img 
-                              src={event.imageUrl} 
-                              alt={event.title} 
-                              className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 opacity-80"
-                            />
-                            <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 items-center">
-                              <span className="bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] text-sky-500 text-xs px-2.5 py-1 rounded-full font-medium">
-                                {event.category}
-                              </span>
-                              {event.isSponsored && (
-                                <span className="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-md flex items-center gap-0.5">
-                                  ★ Sponsored
-                                </span>
-                              )}
-                            </div>
-                            {availableStock <= 15 && availableStock > 0 && (
-                              <span className="absolute top-3 right-3 bg-rose-500 text-white text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded animate-pulse">
-                                Selling Fast!
-                              </span>
-                            )}
-                            {availableStock === 0 && (
-                              <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
-                                <span className="bg-rose-500/20 border border-rose-500 text-rose-300 font-bold uppercase tracking-widest text-sm px-4 py-1.5 rounded-lg shadow-xl shadow-rose-950/20">
-                                  Sold Out
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="p-5">
-                            <h3 className="text-xl font-bold tracking-tight text-[var(--text-primary)] group-hover:text-sky-300 transition-colors flex items-center gap-2">
-                              {event.title}
-                              {event.isSponsored && (
-                                <span className="text-amber-400 text-sm" title="Sponsored Partner Event">★</span>
-                              )}
-                            </h3>
-                            <div className="flex items-center mt-1 mb-2">
-                              {(() => {
-                                const rating = getAverageRating("EVENT", event.id);
-                                const count = getReviewCount("EVENT", event.id);
-                                return rating > 0 ? (
-                                  <div className="flex items-center gap-1">
-                                    {renderStars(rating)}
-                                    <span className="text-[10px] text-[var(--text-secondary)] ml-1">({count})</span>
-                                  </div>
-                                ) : (
-                                  <span className="text-[9px] text-[var(--text-secondary)]/70 italic">No ratings yet</span>
-                                );
-                              })()}
-                            </div>
-                            <p className="text-[var(--text-secondary)] text-xs mt-1 line-clamp-2 leading-relaxed">
-                              {event.description}
-                            </p>
-   
-                            <div className="space-y-2 mt-4">
-                              <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                                <Calendar className="w-3.5 h-3.5 text-sky-400" />
-                                <span>{event.date}</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                                <MapPin className="w-3.5 h-3.5 text-sky-400" />
-                                <span>{event.location}</span>
-                              </div>
-                            </div>
-   
-                            {/* Progress Stock Level */}
-                            <div className="mt-5 pt-4 border-t border-[var(--glass-border)]">
-                              <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)] mb-1">
-                                <span className="font-medium">Ticket Inventory</span>
-                                <span className="font-mono text-[var(--text-primary)] font-bold">{availableStock} / {event.ticketInventory} Left</span>
-                              </div>
-                              <div className="w-full bg-[var(--glass-border)] h-1.5 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full transition-all duration-500 ${
-                                    percentSold > 85 ? "bg-rose-500" : percentSold > 60 ? "bg-amber-500" : "bg-sky-500"
-                                  }`}
-                                  style={{ width: `${percentSold}%` }}
-                                />
-                              </div>
-                            </div>
-   
-                            <div className="flex items-center justify-between mt-4">
-                              <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-widest font-mono">Price</span>
-                              <span className="text-2xl font-bold font-display text-[var(--text-primary)]">${event.price}</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )
-              )}
-
-              {/* Event Catalog Calendar View */}
-              {catalogView === "calendar" && (
-                <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-6">
-                  {/* Calendar Header with Navigation */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[var(--glass-border)] pb-4">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-sky-400" />
-                      <h3 className="text-lg font-bold text-[var(--text-primary)] font-outfit">
-                        {new Date(catalogCalYear, catalogCalMonth).toLocaleString("default", { month: "long" })} {catalogCalYear}
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (catalogCalMonth === 0) {
-                            setCatalogCalMonth(11);
-                            setCatalogCalYear(prev => prev - 1);
-                          } else {
-                            setCatalogCalMonth(prev => prev - 1);
-                          }
-                          setSelectedCatalogDay(null);
-                        }}
-                        className="p-1.5 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                       >
-                        <ChevronLeft className="w-4 h-4" />
+                        {isGeoLoading ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <MapPin className="w-3.5 h-3.5" />
+                        )}
+                        {searchUseGeo ? `Near Me (${searchRadius}mi)` : "Near Me"}
                       </button>
-                      
-                      {/* Dropdown for Month selection */}
-                      <select
-                        value={catalogCalMonth}
-                        onChange={(e) => {
-                          setCatalogCalMonth(parseInt(e.target.value));
-                          setSelectedCatalogDay(null);
-                        }}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-sans"
-                      >
-                        {Array.from({ length: 12 }).map((_, i) => (
-                          <option key={i} value={i} className="bg-[var(--node-bg)] text-[var(--text-primary)]">
-                            {new Date(2026, i).toLocaleString("default", { month: "long" })}
-                          </option>
-                        ))}
-                      </select>
 
-                      {/* Dropdown for Year selection */}
-                      <select
-                        value={catalogCalYear}
-                        onChange={(e) => {
-                          setCatalogCalYear(parseInt(e.target.value));
-                          setSelectedCatalogDay(null);
-                        }}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-sans"
-                      >
-                        {[2025, 2026, 2027, 2028].map(y => (
-                          <option key={y} value={y} className="bg-[var(--node-bg)] text-[var(--text-primary)]">
-                            {y}
-                          </option>
-                        ))}
-                      </select>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (catalogCalMonth === 11) {
-                            setCatalogCalMonth(0);
-                            setCatalogCalYear(prev => prev + 1);
-                          } else {
-                            setCatalogCalMonth(prev => prev + 1);
-                          }
-                          setSelectedCatalogDay(null);
-                        }}
-                        className="p-1.5 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Weekday Names Header */}
-                  <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
-                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-                      <div key={day} className="py-2">{day}</div>
-                    ))}
-                  </div>
-
-                  {/* Calendar Grid */}
-                  <div className="grid grid-cols-7 gap-1 sm:gap-2">
-                    {/* Empty starting slots offset */}
-                    {Array.from({ length: new Date(catalogCalYear, catalogCalMonth, 1).getDay() }).map((_, i) => (
-                      <div key={`empty-${i}`} className="aspect-square bg-slate-500/5 rounded-xl border border-dashed border-[var(--glass-border)] opacity-20 flex items-center justify-center text-[var(--text-secondary)] text-xs">
-                        {/* prev month days overflow */}
-                      </div>
-                    ))}
-
-                    {/* Active Month Days */}
-                    {Array.from({ length: new Date(catalogCalYear, catalogCalMonth + 1, 0).getDate() }).map((_, i) => {
-                      const dayNumber = i + 1;
-                      const monthStr = String(catalogCalMonth + 1).padStart(2, "0");
-                      const dayStr = String(dayNumber).padStart(2, "0");
-                      const dateYmd = `${catalogCalYear}-${monthStr}-${dayStr}`;
-
-                      // Find all events matching this date
-                      const dayEvents = filteredEvents.filter(evt => {
-                        const evtYmd = normalizeDateToYmd(evt.date);
-                        return evtYmd === dateYmd;
-                      });
-
-                      const isSelected = selectedCatalogDay === dateYmd;
-
-                      return (
-                        <div
-                          key={`day-${dayNumber}`}
+                      {(searchQuery || searchCity || searchState || searchZip || searchDateStart || searchDateEnd || searchUseGeo) && (
+                        <button
+                          type="button"
                           onClick={() => {
-                            setSelectedCatalogDay(dateYmd);
-                            // If there is only one event, auto-select it!
-                            if (dayEvents.length === 1) {
-                              setSelectedEvent(dayEvents[0]);
+                            setSearchQuery("");
+                            setSearchCity("");
+                            setSearchState("");
+                            setSearchZip("");
+                            setSearchDateStart("");
+                            setSearchDateEnd("");
+                            setSearchUseGeo(false);
+                            setUserCoords(null);
+                          }}
+                          className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1"
+                          title="Clear Filters"
+                        >
+                          <RefreshCw className="w-3 h-3" /> Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Collapsible Advanced Filters */}
+                  <div className="border-t border-[var(--glass-border)] pt-3 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">City</label>
+                        <input
+                          type="text"
+                          value={searchCity}
+                          onChange={(e) => setSearchCity(e.target.value)}
+                          placeholder="e.g. San Francisco"
+                          className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">State</label>
+                        <select
+                          value={searchState}
+                          onChange={(e) => setSearchState(e.target.value)}
+                          className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-sans"
+                        >
+                          {US_STATES.map((st) => (
+                            <option key={st.code} value={st.code} className="bg-[var(--node-bg)] text-[var(--text-primary)]">
+                              {st.code ? `${st.code} - ${st.name}` : st.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Zipcode</label>
+                        <input
+                          type="text"
+                          value={searchZip}
+                          onChange={(e) => setSearchZip(e.target.value)}
+                          placeholder="e.g. 94103"
+                          maxLength={5}
+                          className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                      {/* Date Range Pickers */}
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block font-semibold">Date Range</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="date"
+                            value={searchDateStart}
+                            onChange={(e) => setSearchDateStart(e.target.value)}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-[10px] text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-sans"
+                          />
+                          <input
+                            type="date"
+                            value={searchDateEnd}
+                            onChange={(e) => setSearchDateEnd(e.target.value)}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-[10px] text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-sans"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Radius Slider for Geolocation */}
+                      {searchUseGeo && (
+                        <div className="space-y-1 bg-[var(--glass-bg)] border border-[var(--glass-border)] p-2 rounded-xl">
+                          <div className="flex justify-between text-[9px] font-mono text-[var(--text-secondary)]">
+                            <span>Search Radius:</span>
+                            <span className="font-bold text-sky-400">{searchRadius} miles</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="5"
+                            max="500"
+                            step="5"
+                            value={searchRadius}
+                            onChange={(e) => setSearchRadius(parseInt(e.target.value))}
+                            className="w-full h-1 bg-[var(--glass-border)] rounded-lg appearance-none cursor-pointer accent-sky-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Event Cards Grid */}
+                {/* Event Cards Grid */}
+                {catalogView === "grid" && (
+                  filteredEvents.length === 0 ? (
+                    <div className="glass rounded-2xl border border-[var(--glass-border)] p-12 text-center text-[var(--text-secondary)] space-y-4">
+                      <Info className="w-12 h-12 text-slate-600 mx-auto" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-[var(--text-primary)]">No events match your criteria</h3>
+                        <p className="text-sm text-[var(--text-secondary)] mt-1">Adjust search parameters or clear filters to view events.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {filteredEvents.map(event => {
+                        const availableStock = event.ticketInventory - event.ticketsSold;
+                        const percentSold = Math.min(100, Math.round((event.ticketsSold / event.ticketInventory) * 100));
+                        const isSelected = selectedEvent?.id === event.id;
+
+                        return (
+                          <div
+                            key={event.id}
+                            onClick={() => {
+                              setSelectedEvent(event);
                               setTicketQuantity(1);
                               setSelectedBooth(null);
                               setAppliedPromo("");
@@ -3926,368 +3870,606 @@ export default function Home() {
                               setPromoError(null);
                               setBoothCategoryFilter("ALL");
                               setBoothTypeFilter("ALL");
-                              setDetailPageEvent(dayEvents[0]);
+                              setDetailPageEvent(event);
                               setShowEventDetailPage(true);
-                            }
-                          }}
-                          className={`aspect-square p-1 rounded-xl border flex flex-col justify-between transition-all duration-200 cursor-pointer ${
-                            dayEvents.length > 0
-                              ? "bg-indigo-500/10 border-indigo-500/35 hover:bg-indigo-500/20 text-indigo-400"
-                              : "bg-[var(--glass-card-bg)] border-[var(--card-border)] hover:bg-[var(--glass-border)] text-[var(--text-primary)]"
-                          } ${isSelected ? "ring-2 ring-sky-500 scale-[1.03] shadow-lg shadow-sky-500/10" : ""}`}
-                        >
-                          <span className="text-[10px] sm:text-xs font-mono font-bold self-start">{dayNumber}</span>
-                          
-                          {/* Event Indicators */}
-                          <div className="w-full mt-auto space-y-1">
-                            {/* Desktop: short tags */}
-                            <div className="hidden md:flex flex-col gap-1">
-                              {dayEvents.slice(0, 2).map(evt => (
-                                <div
-                                  key={evt.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation(); // prevent double select
-                                    setSelectedCatalogDay(dateYmd);
-                                    setSelectedEvent(evt);
-                                    setTicketQuantity(1);
-                                    setSelectedBooth(null);
-                                    setAppliedPromo("");
-                                    setPromoSuccess(null);
-                                    setPromoError(null);
-                                    setBoothCategoryFilter("ALL");
-                                    setBoothTypeFilter("ALL");
-                                    setDetailPageEvent(evt);
-                                    setShowEventDetailPage(true);
-                                  }}
-                                  className={`text-[8px] px-1 py-0.5 rounded font-sans truncate font-medium text-left border ${
-                                    selectedEvent?.id === evt.id
-                                      ? "bg-sky-500 text-white border-sky-400 shadow-sm"
-                                      : evt.isSponsored
-                                        ? "bg-amber-500/20 text-amber-200 border-amber-500/40 hover:bg-amber-500/30 font-bold"
-                                        : "bg-indigo-500/25 text-indigo-200 border-indigo-500/30 hover:bg-indigo-500/40"
-                                  }`}
-                                  title={evt.title}
-                                >
-                                  {evt.isSponsored ? `★ ${evt.title}` : evt.title}
-                                </div>
-                              ))}
-                              {dayEvents.length > 2 && (
-                                <div className="text-[7px] text-[var(--text-secondary)] font-mono text-center font-bold">
-                                  +{dayEvents.length - 2} more
+                            }}
+                            className={`group rounded-2xl overflow-hidden glass-card cursor-pointer border transition-all-custom duration-300 hover:scale-[1.02] hover:shadow-2xl ${isSelected
+                              ? "border-sky-500 shadow-lg shadow-sky-500/10 scale-[1.01]"
+                              : event.isSponsored
+                                ? "border-amber-500/40 shadow-lg shadow-amber-500/5 bg-gradient-to-br from-[var(--glass-card-bg)] to-amber-500/5 hover:border-amber-400"
+                                : "border-[var(--card-border)] hover:border-sky-500/30 hover:shadow-sky-500/5"
+                              }`}
+                          >
+                            <div className="relative h-44 w-full bg-[var(--input-bg)] overflow-hidden">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={event.imageUrl}
+                                alt={event.title}
+                                className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 opacity-80"
+                              />
+                              <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 items-center">
+                                <span className="bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] text-sky-500 text-xs px-2.5 py-1 rounded-full font-medium">
+                                  {event.category}
+                                </span>
+                                {event.isSponsored && (
+                                  <span className="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-md flex items-center gap-0.5">
+                                    ★ Sponsored
+                                  </span>
+                                )}
+                              </div>
+                              {availableStock <= 15 && availableStock > 0 && (
+                                <span className="absolute top-3 right-3 bg-rose-500 text-white text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded animate-pulse">
+                                  Selling Fast!
+                                </span>
+                              )}
+                              {availableStock === 0 && (
+                                <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
+                                  <span className="bg-rose-500/20 border border-rose-500 text-rose-300 font-bold uppercase tracking-widest text-sm px-4 py-1.5 rounded-lg shadow-xl shadow-rose-950/20">
+                                    Sold Out
+                                  </span>
                                 </div>
                               )}
                             </div>
 
-                            {/* Mobile: dots */}
-                            <div className="flex md:hidden justify-center gap-0.5">
-                              {dayEvents.map(evt => (
-                                <span
-                                  key={evt.id}
-                                  className={`h-1.5 w-1.5 rounded-full ${
-                                    selectedEvent?.id === evt.id 
-                                      ? "bg-sky-400" 
+                            <div className="p-5">
+                              <h3 className="text-xl font-bold tracking-tight text-[var(--text-primary)] group-hover:text-sky-300 transition-colors flex items-center gap-2">
+                                {event.title}
+                                {event.isSponsored && (
+                                  <span className="text-amber-400 text-sm" title="Sponsored Partner Event">★</span>
+                                )}
+                              </h3>
+                              <div className="flex items-center mt-1 mb-2">
+                                {(() => {
+                                  const rating = getAverageRating("EVENT", event.id);
+                                  const count = getReviewCount("EVENT", event.id);
+                                  return rating > 0 ? (
+                                    <div className="flex items-center gap-1">
+                                      {renderStars(rating)}
+                                      <span className="text-[10px] text-[var(--text-secondary)] ml-1">({count})</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[9px] text-[var(--text-secondary)]/70 italic">No ratings yet</span>
+                                  );
+                                })()}
+                              </div>
+                              <p className="text-[var(--text-secondary)] text-xs mt-1 line-clamp-2 leading-relaxed">
+                                {event.description}
+                              </p>
+
+                              <div className="space-y-2 mt-4">
+                                <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                                  <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                                  <span>{event.date}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                                  <MapPin className="w-3.5 h-3.5 text-sky-400" />
+                                  <span>{event.location}</span>
+                                </div>
+                              </div>
+
+                              {/* Progress Stock Level */}
+                              <div className="mt-5 pt-4 border-t border-[var(--glass-border)]">
+                                <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)] mb-1">
+                                  <span className="font-medium">Ticket Inventory</span>
+                                  <span className="font-mono text-[var(--text-primary)] font-bold">{availableStock} / {event.ticketInventory} Left</span>
+                                </div>
+                                <div className="w-full bg-[var(--glass-border)] h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-500 ${percentSold > 85 ? "bg-rose-500" : percentSold > 60 ? "bg-amber-500" : "bg-sky-500"
+                                      }`}
+                                    style={{ width: `${percentSold}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between mt-4">
+                                <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-widest font-mono">Price</span>
+                                <span className="text-2xl font-bold font-display text-[var(--text-primary)]">${event.price}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                )}
+
+                {/* Event Catalog Calendar View */}
+                {catalogView === "calendar" && (
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-6">
+                    {/* Calendar Header with Navigation */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[var(--glass-border)] pb-4">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-sky-400" />
+                        <h3 className="text-lg font-bold text-[var(--text-primary)] font-outfit">
+                          {new Date(catalogCalYear, catalogCalMonth).toLocaleString("default", { month: "long" })} {catalogCalYear}
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (catalogCalMonth === 0) {
+                              setCatalogCalMonth(11);
+                              setCatalogCalYear(prev => prev - 1);
+                            } else {
+                              setCatalogCalMonth(prev => prev - 1);
+                            }
+                            setSelectedCatalogDay(null);
+                          }}
+                          className="p-1.5 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+
+                        {/* Dropdown for Month selection */}
+                        <select
+                          value={catalogCalMonth}
+                          onChange={(e) => {
+                            setCatalogCalMonth(parseInt(e.target.value));
+                            setSelectedCatalogDay(null);
+                          }}
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-sans"
+                        >
+                          {Array.from({ length: 12 }).map((_, i) => (
+                            <option key={i} value={i} className="bg-[var(--node-bg)] text-[var(--text-primary)]">
+                              {new Date(2026, i).toLocaleString("default", { month: "long" })}
+                            </option>
+                          ))}
+                        </select>
+
+                        {/* Dropdown for Year selection */}
+                        <select
+                          value={catalogCalYear}
+                          onChange={(e) => {
+                            setCatalogCalYear(parseInt(e.target.value));
+                            setSelectedCatalogDay(null);
+                          }}
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500 font-sans"
+                        >
+                          {[2025, 2026, 2027, 2028].map(y => (
+                            <option key={y} value={y} className="bg-[var(--node-bg)] text-[var(--text-primary)]">
+                              {y}
+                            </option>
+                          ))}
+                        </select>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (catalogCalMonth === 11) {
+                              setCatalogCalMonth(0);
+                              setCatalogCalYear(prev => prev + 1);
+                            } else {
+                              setCatalogCalMonth(prev => prev + 1);
+                            }
+                            setSelectedCatalogDay(null);
+                          }}
+                          className="p-1.5 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Weekday Names Header */}
+                    <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                      {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
+                        <div key={day} className="py-2">{day}</div>
+                      ))}
+                    </div>
+
+                    {/* Calendar Grid */}
+                    <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                      {/* Empty starting slots offset */}
+                      {Array.from({ length: new Date(catalogCalYear, catalogCalMonth, 1).getDay() }).map((_, i) => (
+                        <div key={`empty-${i}`} className="aspect-square bg-slate-500/5 rounded-xl border border-dashed border-[var(--glass-border)] opacity-20 flex items-center justify-center text-[var(--text-secondary)] text-xs">
+                          {/* prev month days overflow */}
+                        </div>
+                      ))}
+
+                      {/* Active Month Days */}
+                      {Array.from({ length: new Date(catalogCalYear, catalogCalMonth + 1, 0).getDate() }).map((_, i) => {
+                        const dayNumber = i + 1;
+                        const monthStr = String(catalogCalMonth + 1).padStart(2, "0");
+                        const dayStr = String(dayNumber).padStart(2, "0");
+                        const dateYmd = `${catalogCalYear}-${monthStr}-${dayStr}`;
+
+                        // Find all events matching this date
+                        const dayEvents = filteredEvents.filter(evt => {
+                          const evtYmd = normalizeDateToYmd(evt.date);
+                          return evtYmd === dateYmd;
+                        });
+
+                        const isSelected = selectedCatalogDay === dateYmd;
+
+                        return (
+                          <div
+                            key={`day-${dayNumber}`}
+                            onClick={() => {
+                              setSelectedCatalogDay(dateYmd);
+                              // If there is only one event, auto-select it!
+                              if (dayEvents.length === 1) {
+                                setSelectedEvent(dayEvents[0]);
+                                setTicketQuantity(1);
+                                setSelectedBooth(null);
+                                setAppliedPromo("");
+                                setPromoSuccess(null);
+                                setPromoError(null);
+                                setBoothCategoryFilter("ALL");
+                                setBoothTypeFilter("ALL");
+                                setDetailPageEvent(dayEvents[0]);
+                                setShowEventDetailPage(true);
+                              }
+                            }}
+                            className={`aspect-square p-1 rounded-xl border flex flex-col justify-between transition-all duration-200 cursor-pointer ${dayEvents.length > 0
+                              ? "bg-indigo-500/10 border-indigo-500/35 hover:bg-indigo-500/20 text-indigo-400"
+                              : "bg-[var(--glass-card-bg)] border-[var(--card-border)] hover:bg-[var(--glass-border)] text-[var(--text-primary)]"
+                              } ${isSelected ? "ring-2 ring-sky-500 scale-[1.03] shadow-lg shadow-sky-500/10" : ""}`}
+                          >
+                            <span className="text-[10px] sm:text-xs font-mono font-bold self-start">{dayNumber}</span>
+
+                            {/* Event Indicators */}
+                            <div className="w-full mt-auto space-y-1">
+                              {/* Desktop: short tags */}
+                              <div className="hidden md:flex flex-col gap-1">
+                                {dayEvents.slice(0, 2).map(evt => (
+                                  <div
+                                    key={evt.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation(); // prevent double select
+                                      setSelectedCatalogDay(dateYmd);
+                                      setSelectedEvent(evt);
+                                      setTicketQuantity(1);
+                                      setSelectedBooth(null);
+                                      setAppliedPromo("");
+                                      setPromoSuccess(null);
+                                      setPromoError(null);
+                                      setBoothCategoryFilter("ALL");
+                                      setBoothTypeFilter("ALL");
+                                      setDetailPageEvent(evt);
+                                      setShowEventDetailPage(true);
+                                    }}
+                                    className={`text-[8px] px-1 py-0.5 rounded font-sans truncate font-medium text-left border ${selectedEvent?.id === evt.id
+                                      ? "bg-sky-500 text-white border-sky-400 shadow-sm"
+                                      : evt.isSponsored
+                                        ? "bg-amber-500/20 text-amber-200 border-amber-500/40 hover:bg-amber-500/30 font-bold"
+                                        : "bg-indigo-500/25 text-indigo-200 border-indigo-500/30 hover:bg-indigo-500/40"
+                                      }`}
+                                    title={evt.title}
+                                  >
+                                    {evt.isSponsored ? `★ ${evt.title}` : evt.title}
+                                  </div>
+                                ))}
+                                {dayEvents.length > 2 && (
+                                  <div className="text-[7px] text-[var(--text-secondary)] font-mono text-center font-bold">
+                                    +{dayEvents.length - 2} more
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Mobile: dots */}
+                              <div className="flex md:hidden justify-center gap-0.5">
+                                {dayEvents.map(evt => (
+                                  <span
+                                    key={evt.id}
+                                    className={`h-1.5 w-1.5 rounded-full ${selectedEvent?.id === evt.id
+                                      ? "bg-sky-400"
                                       : evt.isSponsored
                                         ? "bg-amber-400"
                                         : "bg-indigo-400"
-                                  }`}
-                                />
-                              ))}
+                                      }`}
+                                  />
+                                ))}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
 
-                  {/* Selected Day Event Listing Panel */}
-                  {selectedCatalogDay && (() => {
-                    const dayEvents = filteredEvents.filter(evt => normalizeDateToYmd(evt.date) === selectedCatalogDay);
-                    return (
-                      <div className="border-t border-[var(--glass-border)] pt-4 mt-2">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
-                            Events on <span className="font-mono text-sky-400 font-bold">{selectedCatalogDay}</span>
-                          </h4>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCatalogDay(null)}
-                            className="text-[10px] text-sky-400 hover:underline"
-                          >
-                            Clear Selection
-                          </button>
-                        </div>
-                        {dayEvents.length === 0 ? (
-                          <p className="text-xs text-[var(--text-secondary)] italic">No events scheduled for this date.</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {dayEvents.map(evt => {
-                              const isSelected = selectedEvent?.id === evt.id;
-                              return (
-                                <div
-                                  key={evt.id}
-                                  onClick={() => {
-                                    setSelectedEvent(evt);
-                                    setTicketQuantity(1);
-                                    setSelectedBooth(null);
-                                    setAppliedPromo("");
-                                    setPromoSuccess(null);
-                                    setPromoError(null);
-                                    setBoothCategoryFilter("ALL");
-                                    setBoothTypeFilter("ALL");
-                                    setDetailPageEvent(evt);
-                                    setShowEventDetailPage(true);
-                                  }}
-                                  className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
-                                    isSelected
+                    {/* Selected Day Event Listing Panel */}
+                    {selectedCatalogDay && (() => {
+                      const dayEvents = filteredEvents.filter(evt => normalizeDateToYmd(evt.date) === selectedCatalogDay);
+                      return (
+                        <div className="border-t border-[var(--glass-border)] pt-4 mt-2">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                              Events on <span className="font-mono text-sky-400 font-bold">{selectedCatalogDay}</span>
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCatalogDay(null)}
+                              className="text-[10px] text-sky-400 hover:underline"
+                            >
+                              Clear Selection
+                            </button>
+                          </div>
+                          {dayEvents.length === 0 ? (
+                            <p className="text-xs text-[var(--text-secondary)] italic">No events scheduled for this date.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {dayEvents.map(evt => {
+                                const isSelected = selectedEvent?.id === evt.id;
+                                return (
+                                  <div
+                                    key={evt.id}
+                                    onClick={() => {
+                                      setSelectedEvent(evt);
+                                      setTicketQuantity(1);
+                                      setSelectedBooth(null);
+                                      setAppliedPromo("");
+                                      setPromoSuccess(null);
+                                      setPromoError(null);
+                                      setBoothCategoryFilter("ALL");
+                                      setBoothTypeFilter("ALL");
+                                      setDetailPageEvent(evt);
+                                      setShowEventDetailPage(true);
+                                    }}
+                                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${isSelected
                                       ? "bg-sky-500/10 border-sky-500 text-[var(--text-primary)]"
                                       : evt.isSponsored
                                         ? "bg-amber-500/5 border-amber-500/30 hover:bg-amber-500/10"
                                         : "bg-[var(--glass-card-bg)] border-[var(--card-border)] hover:bg-[var(--glass-border)]"
-                                  }`}
-                                >
-                                  <div>
-                                    <h5 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                                      {evt.title}
-                                      {evt.isSponsored && (
-                                        <span className="bg-amber-500/20 text-amber-400 text-[8px] font-extrabold px-1.5 py-0.5 rounded shadow-sm border border-amber-500/35">★ SPONSORED</span>
-                                      )}
-                                    </h5>
-                                    <div className="flex items-center gap-3 text-[10px] text-[var(--text-secondary)] mt-1">
-                                      <span className={evt.isSponsored ? "text-amber-400 font-bold" : "text-sky-400 font-semibold"}>
-                                        {evt.category}
+                                      }`}
+                                  >
+                                    <div>
+                                      <h5 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                                        {evt.title}
+                                        {evt.isSponsored && (
+                                          <span className="bg-amber-500/20 text-amber-400 text-[8px] font-extrabold px-1.5 py-0.5 rounded shadow-sm border border-amber-500/35">★ SPONSORED</span>
+                                        )}
+                                      </h5>
+                                      <div className="flex items-center gap-3 text-[10px] text-[var(--text-secondary)] mt-1">
+                                        <span className={evt.isSponsored ? "text-amber-400 font-bold" : "text-sky-400 font-semibold"}>
+                                          {evt.category}
+                                        </span>
+                                        <span>•</span>
+                                        <span>{evt.location}</span>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-xs font-bold text-[var(--text-primary)] font-mono block">${evt.price}</span>
+                                      <span className="text-[9px] text-[var(--text-secondary)] font-mono">
+                                        {evt.ticketInventory - evt.ticketsSold} left
                                       </span>
-                                      <span>•</span>
-                                      <span>{evt.location}</span>
                                     </div>
                                   </div>
-                                  <div className="text-right">
-                                    <span className="text-xs font-bold text-[var(--text-primary)] font-mono block">${evt.price}</span>
-                                    <span className="text-[9px] text-[var(--text-secondary)] font-mono">
-                                      {evt.ticketInventory - evt.ticketsSold} left
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
- 
-            {/* Config & Checkout Details Panel */}
-            <div className="space-y-6">
-              
-              {selectedEvent ? (
-                <div className="space-y-6">
-                  
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
 
-                  {/* 🎟 Buy Tickets CTA — redirects to Event Details Page */}
-                  <div className="glass rounded-2xl border border-sky-500/20 p-5 relative overflow-hidden space-y-3">
-                    <div className="absolute -top-10 -right-10 w-28 h-28 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-sky-500/10 border border-sky-500/20 rounded-xl">
-                        <Ticket className="w-5 h-5 text-sky-400" />
+              {/* Config & Checkout Details Panel */}
+              <div className="space-y-6">
+
+                {selectedEvent ? (
+                  <div className="space-y-6">
+
+
+                    {/* 🎟 Buy Tickets CTA — redirects to Event Details Page */}
+                    <div className="glass rounded-2xl border border-sky-500/20 p-5 relative overflow-hidden space-y-3">
+                      <div className="absolute -top-10 -right-10 w-28 h-28 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-sky-500/10 border border-sky-500/20 rounded-xl">
+                          <Ticket className="w-5 h-5 text-sky-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-[var(--text-primary)]">Buy Attendee Tickets</h4>
+                          <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Open the event details page to purchase tickets.</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-[var(--text-primary)]">Buy Attendee Tickets</h4>
-                        <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Open the event details page to purchase tickets.</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl px-3 py-2">
-                      <span className="text-xs font-mono font-bold text-emerald-400">${selectedEvent.price} / ticket</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
-                        selectedEvent.ticketInventory - selectedEvent.ticketsSold <= 0
+                      <div className="flex items-center justify-between bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl px-3 py-2">
+                        <span className="text-xs font-mono font-bold text-emerald-400">${selectedEvent.price} / ticket</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${selectedEvent.ticketInventory - selectedEvent.ticketsSold <= 0
                           ? "bg-rose-500/10 text-rose-400"
                           : selectedEvent.ticketInventory - selectedEvent.ticketsSold <= 15
                             ? "bg-amber-500/10 text-amber-400"
                             : "bg-emerald-500/10 text-emerald-400"
-                      }`}>
-                        {selectedEvent.ticketInventory - selectedEvent.ticketsSold <= 0
-                          ? "SOLD OUT"
-                          : `${selectedEvent.ticketInventory - selectedEvent.ticketsSold} left`}
-                      </span>
+                          }`}>
+                          {selectedEvent.ticketInventory - selectedEvent.ticketsSold <= 0
+                            ? "SOLD OUT"
+                            : `${selectedEvent.ticketInventory - selectedEvent.ticketsSold} left`}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDetailPageEvent(selectedEvent);
+                          setShowEventDetailPage(true);
+                          setBookingMode("TICKET");
+                        }}
+                        disabled={selectedEvent.ticketInventory - selectedEvent.ticketsSold <= 0}
+                        className="w-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-2.5 rounded-xl shadow shadow-sky-500/20 transition-all flex items-center justify-center gap-2 text-xs disabled:opacity-50 font-outfit"
+                      >
+                        <Ticket className="w-3.5 h-3.5" />
+                        View Details &amp; Buy Tickets
+                      </button>
+                    </div>
+
+                    {/* Business Portal Actions Card */}
+                    <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 relative overflow-hidden">
+                      <div className="absolute -top-16 -right-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl"></div>
+
+                      <div className="flex items-center gap-2 relative z-10 font-sans">
+                        <Settings className="w-5 h-5 text-sky-400" />
+                        <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Business Portals &amp; Bookings</h4>
+                      </div>
+                      <p className="text-[11px] text-[var(--text-secondary)]">Access professional operations, lease booths, book venues, or apply for brand sponsorship packages.</p>
+
+                      <div className="space-y-3 relative z-10 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentUserRole("SPONSOR");
+                            setActiveTab("sponsor");
+                            addSagaLog("Auth-Service", `Mock login: Switched role to [SPONSOR] via Sponsor Event action.`, "info");
+                          }}
+                          className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white font-bold py-2.5 rounded-xl shadow shadow-purple-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
+                        >
+                          <Award className="w-4 h-4" />
+                          Sponsor Event
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentUserRole("VENDOR");
+                            setActiveTab("vendor");
+                            if (!activeVendorProfile || activeVendorProfile.id !== "vnd-luigi") {
+                              setActiveVendorProfile({
+                                id: "vnd-luigi",
+                                businessName: "Luigi's Woodfired Pizza",
+                                ownerName: "Luigi Rossini",
+                                email: "luigi@woodfiredpizza.it",
+                                phone: "+1 555-8833",
+                                category: "Italian",
+                                status: "VERIFIED"
+                              });
+                            }
+                            addSagaLog("Auth-Service", `Mock login: Switched role to [VENDOR] via Book Booth action.`, "info");
+                          }}
+                          className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold py-2.5 rounded-xl shadow shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
+                        >
+                          <Store className="w-4 h-4" />
+                          Book Booth
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentUserRole("ORGANIZER");
+                            setActiveTab("venues");
+                            if (!activeOrganizerProfile || activeOrganizerProfile.id !== "org-sarah") {
+                              setActiveOrganizerProfile({
+                                id: "org-sarah",
+                                organizationName: "Sarah Connor Events",
+                                contactName: "Sarah Connor",
+                                email: "sarah@sfvenues.com",
+                                phone: "+1 555-9011",
+                                status: "VERIFIED"
+                              });
+                            }
+                            addSagaLog("Auth-Service", `Mock login: Switched role to [ORGANIZER] via Book Venue action.`, "info");
+                          }}
+                          className="w-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-2.5 rounded-xl shadow shadow-sky-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
+                        >
+                          <Calendar className="w-4 h-4" />
+                          Book Venue
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentUserRole("ORGANIZER");
+                            setActiveTab("venues");
+                            setActiveVenueProvider(null);
+                            setVpRegStep("form");
+                            addSagaLog("Auth-Service", `Switched role to [ORGANIZER] and opened Venue Registration page.`, "info");
+                          }}
+                          className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold py-2.5 rounded-xl shadow shadow-emerald-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
+                        >
+                          <MapPin className="w-4 h-4" />
+                          List Your Venu
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                ) : (
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-8 text-center text-[var(--text-secondary)]">
+                    <p>Please select an event from the catalog to configure bookings.</p>
+                  </div>
+                )}
+
+                {/* Community Feedback Widget */}
+                <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4 relative overflow-hidden">
+                  <div className="absolute -top-16 -right-16 w-36 h-36 bg-sky-500/5 rounded-full blur-2xl"></div>
+                  <div className="flex justify-between items-start gap-2 relative z-10">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider">
+                        Site Feedback
+                      </h4>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        {(() => {
+                          const avg = getAverageRating("SITE", "site");
+                          const cnt = getReviewCount("SITE", "site");
+                          return (
+                            <>
+                              {renderStars(avg)}
+                              <span className="text-[10px] text-[var(--text-secondary)] font-mono font-bold">({cnt})</span>
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
-                        setDetailPageEvent(selectedEvent);
-                        setShowEventDetailPage(true);
-                        setBookingMode("TICKET");
+                        setReviewTargetType("SITE");
+                        setReviewTargetId("site");
+                        setReviewRating(5);
+                        setReviewComment("");
+                        setReviewAuthorName("");
+                        setReviewAuthorEmail("");
+                        setReviewOtpInput("");
+                        setReviewOtpError(null);
+                        setReviewVerificationStep("form");
+                        setShowReviewModal(true);
                       }}
-                      disabled={selectedEvent.ticketInventory - selectedEvent.ticketsSold <= 0}
-                      className="w-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-2.5 rounded-xl shadow shadow-sky-500/20 transition-all flex items-center justify-center gap-2 text-xs disabled:opacity-50 font-outfit"
+                      className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-1.5 px-3 rounded-xl text-[10px] transition font-outfit shadow-sm shadow-sky-955"
                     >
-                      <Ticket className="w-3.5 h-3.5" />
-                      View Details &amp; Buy Tickets
+                      Write a Review
                     </button>
                   </div>
 
-                  {/* Business Portal Actions Card */}
-                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 relative overflow-hidden">
-                    <div className="absolute -top-16 -right-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl"></div>
-                    
-                    <div className="flex items-center gap-2 relative z-10 font-sans">
-                      <Settings className="w-5 h-5 text-sky-400" />
-                      <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Business Portals &amp; Bookings</h4>
-                    </div>
-                    <p className="text-[11px] text-[var(--text-secondary)]">Access professional operations, lease booths, book venues, or apply for brand sponsorship packages.</p>
-                    
-                    <div className="space-y-3 relative z-10 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCurrentUserRole("VENDOR");
-                          setActiveTab("vendor");
-                          if (!activeVendorProfile || activeVendorProfile.id !== "vnd-luigi") {
-                            setActiveVendorProfile({
-                              id: "vnd-luigi",
-                              businessName: "Luigi's Woodfired Pizza",
-                              ownerName: "Luigi Rossini",
-                              email: "luigi@woodfiredpizza.it",
-                              phone: "+1 555-8833",
-                              category: "Italian",
-                              status: "VERIFIED"
-                            });
-                          }
-                          addSagaLog("Auth-Service", `Mock login: Switched role to [VENDOR] via Book Booth action.`, "info");
-                        }}
-                        className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold py-2.5 rounded-xl shadow shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
-                      >
-                        <Store className="w-4 h-4" />
-                        Book Booth
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCurrentUserRole("ORGANIZER");
-                          setActiveTab("venues");
-                          if (!activeOrganizerProfile || activeOrganizerProfile.id !== "org-sarah") {
-                            setActiveOrganizerProfile({
-                              id: "org-sarah",
-                              organizationName: "Sarah Connor Events",
-                              contactName: "Sarah Connor",
-                              email: "sarah@sfvenues.com",
-                              phone: "+1 555-9011",
-                              status: "VERIFIED"
-                            });
-                          }
-                          addSagaLog("Auth-Service", `Mock login: Switched role to [ORGANIZER] via Book Venue action.`, "info");
-                        }}
-                        className="w-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-2.5 rounded-xl shadow shadow-sky-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
-                      >
-                        <Calendar className="w-4 h-4" />
-                        Book Venue
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCurrentUserRole("SPONSOR");
-                          setActiveTab("sponsor");
-                          addSagaLog("Auth-Service", `Mock login: Switched role to [SPONSOR] via Sponsor Event action.`, "info");
-                        }}
-                        className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white font-bold py-2.5 rounded-xl shadow shadow-purple-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
-                      >
-                        <Award className="w-4 h-4" />
-                        Sponsor Event
-                      </button>
-                    </div>
-                  </div>
-
-                </div>
-              ) : (
-                <div className="glass rounded-2xl border border-[var(--glass-border)] p-8 text-center text-[var(--text-secondary)]">
-                  <p>Please select an event from the catalog to configure bookings.</p>
-                </div>
-              )}
-
-              {/* Community Feedback Widget */}
-              <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4 relative overflow-hidden">
-                <div className="absolute -top-16 -right-16 w-36 h-36 bg-sky-500/5 rounded-full blur-2xl"></div>
-                <div className="flex justify-between items-start gap-2 relative z-10">
-                  <div>
-                    <h4 className="text-xs font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider">
-                      Site Feedback
-                    </h4>
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      {(() => {
-                        const avg = getAverageRating("SITE", "site");
-                        const cnt = getReviewCount("SITE", "site");
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1 relative z-10">
+                    {(() => {
+                      const siteReviews = reviews.filter(r => r.targetType === "SITE" && r.status === "APPROVED");
+                      if (siteReviews.length === 0) {
                         return (
-                          <>
-                            {renderStars(avg)}
-                            <span className="text-[10px] text-[var(--text-secondary)] font-mono font-bold">({cnt})</span>
-                          </>
+                          <p className="text-[11px] text-[var(--text-secondary)]/75 italic text-center py-4">
+                            No site experience reviews yet. Be the first to write one!
+                          </p>
                         );
-                      })()}
-                    </div>
+                      }
+                      return siteReviews.slice(-3).reverse().map(rev => (
+                        <div key={rev.id} className="p-3 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] text-xs space-y-1">
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-bold text-[var(--text-primary)]">{rev.authorName}</span>
+                            <span className="text-slate-500 font-mono">{rev.date}</span>
+                          </div>
+                          <div className="flex items-center">
+                            {renderStars(rev.rating)}
+                          </div>
+                          <p className="text-[var(--text-secondary)] text-[11px] italic leading-relaxed">{rev.comment}</p>
+                        </div>
+                      ));
+                    })()}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReviewTargetType("SITE");
-                      setReviewTargetId("site");
-                      setReviewRating(5);
-                      setReviewComment("");
-                      setReviewAuthorName("");
-                      setReviewAuthorEmail("");
-                      setReviewOtpInput("");
-                      setReviewOtpError(null);
-                      setReviewVerificationStep("form");
-                      setShowReviewModal(true);
-                    }}
-                    className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-1.5 px-3 rounded-xl text-[10px] transition font-outfit shadow-sm shadow-sky-955"
-                  >
-                    Write a Review
-                  </button>
                 </div>
 
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1 relative z-10">
-                  {(() => {
-                    const siteReviews = reviews.filter(r => r.targetType === "SITE" && r.status === "APPROVED");
-                    if (siteReviews.length === 0) {
-                      return (
-                        <p className="text-[11px] text-[var(--text-secondary)]/75 italic text-center py-4">
-                          No site experience reviews yet. Be the first to write one!
-                        </p>
-                      );
-                    }
-                    return siteReviews.slice(-3).reverse().map(rev => (
-                      <div key={rev.id} className="p-3 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] text-xs space-y-1">
-                        <div className="flex justify-between items-center text-[10px]">
-                          <span className="font-bold text-[var(--text-primary)]">{rev.authorName}</span>
-                          <span className="text-slate-500 font-mono">{rev.date}</span>
-                        </div>
-                        <div className="flex items-center">
-                          {renderStars(rev.rating)}
-                        </div>
-                        <p className="text-[var(--text-secondary)] text-[11px] italic leading-relaxed">{rev.comment}</p>
-                      </div>
-                    ));
-                  })()}
-                </div>
               </div>
 
             </div>
 
           </div>
-
-        </div>
         )}
 
         {/* TAB 2: MY ORDERS & 2FA MANAGEMENT */}
         {activeTab === "my-tickets" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            
+
             {/* Orders & Verification Details */}
             <div className="lg:col-span-2 space-y-6">
               <h2 className="text-3xl font-bold font-display text-[var(--text-primary)] font-outfit">My Order & Booking History</h2>
-              
+
               {orders.length === 0 ? (
                 <div className="glass rounded-2xl border border-[var(--glass-border)] p-12 text-center text-[var(--text-secondary)] space-y-4">
                   <Ticket className="w-12 h-12 text-slate-605 mx-auto" />
@@ -4305,13 +4487,12 @@ export default function Home() {
               ) : (
                 <div className="space-y-4">
                   {orders.map(order => (
-                    <div 
-                      key={order.id} 
-                      className={`glass rounded-2xl border p-5 relative overflow-hidden ${
-                        order.status === "PAID" 
-                          ? "border-emerald-500/20 bg-emerald-950/5" 
-                          : "border-rose-500/20 bg-rose-950/5"
-                      }`}
+                    <div
+                      key={order.id}
+                      className={`glass rounded-2xl border p-5 relative overflow-hidden ${order.status === "PAID"
+                        ? "border-emerald-500/20 bg-emerald-950/5"
+                        : "border-rose-500/20 bg-rose-950/5"
+                        }`}
                     >
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
@@ -4319,23 +4500,21 @@ export default function Home() {
                             <span className="font-mono text-xs text-sky-400 bg-[var(--glass-bg)] border border-[var(--glass-border)] px-2 py-0.5 rounded font-bold">
                               {order.id}
                             </span>
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono uppercase ${
-                              order.type === "BOOTH" 
-                                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" 
-                                : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-                            }`}>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono uppercase ${order.type === "BOOTH"
+                              ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                              : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                              }`}>
                               {order.type === "BOOTH" ? "Booth Slot" : "Attendee Ticket"}
                             </span>
-                            <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
-                              order.status === "PAID" 
-                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
-                                : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
-                            }`}>
+                            <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${order.status === "PAID"
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                              : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                              }`}>
                               {order.status}
                             </span>
                             <span className="text-xs text-slate-500">{order.timestamp}</span>
                           </div>
-                          
+
                           <h3 className="text-lg font-bold text-[var(--text-primary)] mt-2 leading-tight">
                             {order.type === "BOOTH" ? order.boothName : order.eventTitle}
                           </h3>
@@ -4378,15 +4557,15 @@ export default function Home() {
                             <div className="bg-white p-1.5 rounded-lg border border-slate-200 shadow-md shadow-black/20">
                               {/* Simple Mock QR Code */}
                               <svg className="w-12 h-12 text-slate-950" viewBox="0 0 100 100">
-                                <rect width="100" height="100" fill="white"/>
-                                <rect x="10" y="10" width="20" height="20" fill="black"/>
-                                <rect x="70" y="10" width="20" height="20" fill="black"/>
-                                <rect x="10" y="70" width="20" height="20" fill="black"/>
-                                <rect x="35" y="35" width="30" height="30" fill="black"/>
-                                <rect x="15" y="45" width="10" height="10" fill="black"/>
-                                <rect x="75" y="75" width="15" height="15" fill="black"/>
-                                <rect x="45" y="75" width="20" height="10" fill="black"/>
-                                <rect x="75" y="45" width="10" height="20" fill="black"/>
+                                <rect width="100" height="100" fill="white" />
+                                <rect x="10" y="10" width="20" height="20" fill="black" />
+                                <rect x="70" y="10" width="20" height="20" fill="black" />
+                                <rect x="10" y="70" width="20" height="20" fill="black" />
+                                <rect x="35" y="35" width="30" height="30" fill="black" />
+                                <rect x="15" y="45" width="10" height="10" fill="black" />
+                                <rect x="75" y="75" width="15" height="15" fill="black" />
+                                <rect x="45" y="75" width="20" height="10" fill="black" />
+                                <rect x="75" y="45" width="10" height="20" fill="black" />
                               </svg>
                             </div>
                           ) : (
@@ -4424,11 +4603,10 @@ export default function Home() {
                   </div>
                   <button
                     onClick={handleToggle2Fa}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all-custom ${
-                      is2FaEnabled 
-                        ? "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20" 
-                        : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all-custom ${is2FaEnabled
+                      ? "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20"
+                      : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+                      }`}
                   >
                     {is2FaEnabled ? "Disable" : "Enable"}
                   </button>
@@ -4467,55 +4645,50 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setAdminSubTab("directory")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${
-                  adminSubTab === "directory" 
-                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" 
-                    : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${adminSubTab === "directory"
+                  ? "bg-sky-500 text-white shadow-md shadow-sky-500/10"
+                  : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                  }`}
               >
                 👤 User Directory &amp; Moderation
               </button>
               <button
                 type="button"
                 onClick={() => setAdminSubTab("events")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${
-                  adminSubTab === "events" 
-                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" 
-                    : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${adminSubTab === "events"
+                  ? "bg-sky-500 text-white shadow-md shadow-sky-500/10"
+                  : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                  }`}
               >
                 🎪 Events &amp; Slots Config
               </button>
               <button
                 type="button"
                 onClick={() => setAdminSubTab("financials")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${
-                  adminSubTab === "financials" 
-                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" 
-                    : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${adminSubTab === "financials"
+                  ? "bg-sky-500 text-white shadow-md shadow-sky-500/10"
+                  : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                  }`}
               >
                 💵 Financials Console
               </button>
               <button
                 type="button"
                 onClick={() => setAdminSubTab("reports")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${
-                  adminSubTab === "reports" 
-                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" 
-                    : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${adminSubTab === "reports"
+                  ? "bg-sky-500 text-white shadow-md shadow-sky-500/10"
+                  : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                  }`}
               >
                 📊 SVG Reports
               </button>
               <button
                 type="button"
                 onClick={() => setAdminSubTab("reviews")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${
-                  adminSubTab === "reviews" 
-                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/10" 
-                    : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-outfit transition ${adminSubTab === "reviews"
+                  ? "bg-sky-500 text-white shadow-md shadow-sky-500/10"
+                  : "bg-[var(--glass-bg)] border border-[var(--glass-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-border)]"
+                  }`}
               >
                 🛡️ Moderator Console
               </button>
@@ -4535,7 +4708,7 @@ export default function Home() {
                       <p className="text-xs text-[var(--text-secondary)] mt-1">Configure security rules and authentication requirements for EventSnap.</p>
                     </div>
                   </div>
-                  
+
                   <div className="p-4 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
                       <span className="text-sm font-bold text-[var(--text-primary)] block">System-Wide OTP Verification</span>
@@ -4549,11 +4722,10 @@ export default function Home() {
                         localStorage.setItem("otpVerificationEnabled", String(newVal));
                         addSagaLog("System-Config", `OTP Verification is now ${newVal ? "ENABLED" : "DISABLED"} globally.`, newVal ? "success" : "info");
                       }}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all-custom border cursor-pointer ${
-                        otpVerificationEnabled
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
-                          : "bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20"
-                      }`}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all-custom border cursor-pointer ${otpVerificationEnabled
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                        : "bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20"
+                        }`}
                     >
                       {otpVerificationEnabled ? "OTP Required" : "OTP Bypassed"}
                     </button>
@@ -4563,7 +4735,7 @@ export default function Home() {
                 <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
                   <h3 className="text-lg font-bold text-[var(--text-primary)] font-outfit">Registered User Profiles</h3>
                   <p className="text-xs text-[var(--text-secondary)]">Manage registered platform credentials and suspend/activate accounts.</p>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[350px] overflow-y-auto pr-1">
                     {users.map(u => (
                       <div key={u.id} className="p-3.5 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl flex justify-between items-center text-xs">
@@ -4578,11 +4750,10 @@ export default function Home() {
                           <button
                             type="button"
                             onClick={() => toggleUserSuspension(u.id)}
-                            className={`px-3 py-1 rounded-lg text-[10px] font-bold transition ${
-                              u.status === "ACTIVE" 
-                                ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20" 
-                                : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
-                            }`}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-bold transition ${u.status === "ACTIVE"
+                              ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20"
+                              : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
+                              }`}
                           >
                             {u.status === "ACTIVE" ? "Suspend" : "Activate"}
                           </button>
@@ -4865,7 +5036,7 @@ export default function Home() {
                             ))}
                           </select>
                         </div>
-                        
+
                         <div className="space-y-1.5">
                           <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Inventory Stock *</label>
                           <input
@@ -5066,7 +5237,7 @@ export default function Home() {
                       <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Platform Fee Control</h4>
                       <p className="text-[10px] text-[var(--text-secondary)] mt-1">Adjust platform service cut commission rate below.</p>
                     </div>
-                    
+
                     <div className="space-y-3 text-xs">
                       <div className="flex justify-between items-center">
                         <span className="font-bold text-[var(--text-secondary)]">Fee Percentage cut</span>
@@ -5089,7 +5260,7 @@ export default function Home() {
                       const grossSponsorSales = orders.filter(o => o.status === "PAID" && o.type === "SPONSOR").reduce((sum, o) => sum + o.totalAmount, 0);
                       const platformFeeRevenue = grossTicketSales * platformFeePercentage / 100;
                       const grossTotal = grossTicketSales + grossBoothSales + grossSponsorSales;
-                      
+
                       return (
                         <div className="space-y-3.5 pt-4 border-t border-[var(--glass-border)] text-xs text-[var(--text-primary)] font-sans">
                           <div className="flex justify-between">
@@ -5124,28 +5295,28 @@ export default function Home() {
                   <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4 text-xs font-sans">
                     <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Release Organizer Payouts</h4>
                     <p className="text-[10px] text-[var(--text-secondary)]">Disburse organizer funds from ticket sales (net platform cut fee) and rental/sponsor space lease bookings.</p>
-                    
+
                     <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
                       {events.map(ev => {
                         const org = users.find(u => u.id === ev.organizerId) || { name: "Organizer", email: "" };
-                        
+
                         const eventTicketsGross = orders
                           .filter(o => o.eventId === ev.id && o.type === "TICKET" && o.status === "PAID")
                           .reduce((sum, o) => sum + o.totalAmount, 0);
-                          
+
                         const eventBoothGross = orders
                           .filter(o => o.eventId === ev.id && o.type === "BOOTH" && o.status === "PAID")
                           .reduce((sum, o) => sum + (o.amountPaid ?? o.totalAmount), 0);
-                          
+
                         const eventSponsorGross = orders
                           .filter(o => o.eventId === ev.id && o.type === "SPONSOR" && o.status === "PAID")
                           .reduce((sum, o) => sum + o.totalAmount, 0);
-                          
+
                         const eventTicketsNet = eventTicketsGross * (1 - platformFeePercentage / 100);
                         const totalPayout = eventTicketsNet + eventBoothGross + eventSponsorGross;
-                        
+
                         const isReleased = releasedPayouts.includes(ev.id);
-                        
+
                         return (
                           <div key={ev.id} className="p-3 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl flex justify-between items-center text-xs">
                             <div>
@@ -5181,7 +5352,7 @@ export default function Home() {
                   <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4 text-xs font-sans">
                     <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Master Transactions log</h4>
                     <p className="text-[10px] text-[var(--text-secondary)]">Master transaction database logs. Refund actions trigger compensating rollback saga transaction commands.</p>
-                    
+
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse text-[11px]">
                         <thead>
@@ -5204,13 +5375,12 @@ export default function Home() {
                               <tr key={o.id} className="border-b border-[var(--glass-border)] last:border-0 hover:bg-white/2 transition">
                                 <td className="py-2.5 font-mono font-bold text-[var(--text-primary)]">{o.id}</td>
                                 <td className="py-2.5">
-                                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${
-                                    o.type === "TICKET" 
-                                      ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" 
-                                      : o.type === "BOOTH" 
-                                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" 
-                                        : "bg-teal-500/10 text-teal-400 border border-teal-500/20"
-                                  }`}>
+                                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${o.type === "TICKET"
+                                    ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                                    : o.type === "BOOTH"
+                                      ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                      : "bg-teal-500/10 text-teal-400 border border-teal-500/20"
+                                    }`}>
                                     {o.type}
                                   </span>
                                 </td>
@@ -5220,13 +5390,12 @@ export default function Home() {
                                 </td>
                                 <td className="py-2.5 font-mono font-bold text-[var(--text-primary)]">${o.totalAmount}</td>
                                 <td className="py-2.5">
-                                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${
-                                    o.status === "PAID" 
-                                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-                                      : o.status === "CANCELLED" || o.status === "FAILED"
-                                        ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" 
-                                        : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                                  }`}>
+                                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${o.status === "PAID"
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                    : o.status === "CANCELLED" || o.status === "FAILED"
+                                      ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                                      : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                    }`}>
                                     {o.status}
                                   </span>
                                 </td>
@@ -5259,29 +5428,29 @@ export default function Home() {
                   const grossTicketSales = orders.filter(o => o.status === "PAID" && o.type === "TICKET").reduce((sum, o) => sum + o.totalAmount, 0);
                   const grossBoothSales = orders.filter(o => o.status === "PAID" && o.type === "BOOTH").reduce((sum, o) => sum + (o.amountPaid ?? o.totalAmount), 0);
                   const grossSponsorSales = orders.filter(o => o.status === "PAID" && o.type === "SPONSOR").reduce((sum, o) => sum + o.totalAmount, 0);
-                  
+
                   const getCategorySales = (cat: string) => orders
                     .filter(o => o.status === "PAID" && events.find(e => e.id === o.eventId)?.category === cat)
                     .reduce((sum, o) => sum + o.totalAmount, 0);
-                    
+
                   const techSales = getCategorySales("Technology");
                   const musicSales = getCategorySales("Music");
                   const foodSales = getCategorySales("Food & Drink");
                   const sportsSales = getCategorySales("Sports");
                   const gamingSales = getCategorySales("Gaming");
-                  
+
                   const maxVal = Math.max(techSales, musicSales, foodSales, sportsSales, gamingSales, 100);
-                  
+
                   const attendeeCount = users.filter(u => u.role === "ATTENDEE").length;
                   const organizerCount = users.filter(u => u.role === "ORGANIZER").length;
                   const vendorCount = users.filter(u => u.role === "VENDOR").length;
                   const sponsorCount = users.filter(u => u.role === "SPONSOR").length;
                   const adminCount = users.filter(u => u.role === "ADMIN").length;
                   const totalUsers = users.length || 1;
-                  
+
                   return (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                      
+
                       {/* Category Revenue SVG Bar Chart */}
                       <div className="lg:col-span-2 glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
                         <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Revenue By Category Dashboard</h4>
@@ -5291,29 +5460,29 @@ export default function Home() {
                             <line x1="50" y1="80" x2="450" y2="80" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="4,4" />
                             <line x1="50" y1="130" x2="450" y2="130" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="4,4" />
                             <line x1="50" y1="180" x2="450" y2="180" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="4,4" />
-                            
+
                             <rect x="70" y={180 - (techSales / maxVal) * 140} width="40" height={(techSales / maxVal) * 140} rx="4" fill="url(#blue-grad)" />
                             <text x="90" y="200" fill="var(--text-secondary)" fontSize="9" textAnchor="middle" fontWeight="bold">Tech</text>
                             <text x="90" y={170 - (techSales / maxVal) * 140} fill="var(--text-primary)" fontSize="10" fontWeight="bold" textAnchor="middle">${techSales}</text>
-                            
+
                             <rect x="150" y={180 - (musicSales / maxVal) * 140} width="40" height={(musicSales / maxVal) * 140} rx="4" fill="url(#pink-grad)" />
                             <text x="170" y="200" fill="var(--text-secondary)" fontSize="9" textAnchor="middle" fontWeight="bold">Music</text>
                             <text x="170" y={170 - (musicSales / maxVal) * 140} fill="var(--text-primary)" fontSize="10" fontWeight="bold" textAnchor="middle">${musicSales}</text>
-                            
+
                             <rect x="230" y={180 - (foodSales / maxVal) * 140} width="40" height={(foodSales / maxVal) * 140} rx="4" fill="url(#green-grad)" />
                             <text x="250" y="200" fill="var(--text-secondary)" fontSize="9" textAnchor="middle" fontWeight="bold">Food/Wine</text>
                             <text x="250" y={170 - (foodSales / maxVal) * 140} fill="var(--text-primary)" fontSize="10" fontWeight="bold" textAnchor="middle">${foodSales}</text>
-                            
+
                             <rect x="310" y={180 - (sportsSales / maxVal) * 140} width="40" height={(sportsSales / maxVal) * 140} rx="4" fill="url(#purple-grad)" />
                             <text x="330" y="200" fill="var(--text-secondary)" fontSize="9" textAnchor="middle" fontWeight="bold">Sports</text>
                             <text x="330" y={170 - (sportsSales / maxVal) * 140} fill="var(--text-primary)" fontSize="10" fontWeight="bold" textAnchor="middle">${sportsSales}</text>
-                            
+
                             <rect x="390" y={180 - (gamingSales / maxVal) * 140} width="40" height={(gamingSales / maxVal) * 140} rx="4" fill="url(#orange-grad)" />
                             <text x="410" y="200" fill="var(--text-secondary)" fontSize="9" textAnchor="middle" fontWeight="bold">Gaming</text>
                             <text x="410" y={170 - (gamingSales / maxVal) * 140} fill="var(--text-primary)" fontSize="10" fontWeight="bold" textAnchor="middle">${gamingSales}</text>
-                            
+
                             <line x1="50" y1="180" x2="450" y2="180" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
-                            
+
                             <defs>
                               <linearGradient id="blue-grad" x1="0%" y1="0%" x2="0%" y2="100%">
                                 <stop offset="0%" stopColor="#38bdf8" />
@@ -5351,18 +5520,18 @@ export default function Home() {
                               const vPct = vendorCount / totalUsers;
                               const sPct = sponsorCount / totalUsers;
                               const adPct = adminCount / totalUsers;
-                              
+
                               const circ = 377;
                               const aLen = circ * aPct;
                               const oLen = circ * oPct;
                               const vLen = circ * vPct;
                               const sLen = circ * sPct;
                               const adLen = circ * adPct;
-                              
+
                               return (
                                 <>
                                   <circle cx="90" cy="90" r="60" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="20" />
-                                  
+
                                   <circle cx="90" cy="90" r="60" fill="transparent" stroke="#38bdf8" strokeWidth="20"
                                     strokeDasharray={`${aLen} ${circ - aLen}`}
                                     strokeDashoffset="0"
@@ -5537,8 +5706,8 @@ export default function Home() {
                           const matchStatus = adminReviewStatusFilter === "ALL" || r.status === adminReviewStatusFilter;
                           const matchRating = adminReviewRatingFilter === "ALL" || r.rating.toString() === adminReviewRatingFilter;
                           const query = adminReviewSearch.trim().toLowerCase();
-                          const matchQuery = !query || 
-                            r.authorName.toLowerCase().includes(query) || 
+                          const matchQuery = !query ||
+                            r.authorName.toLowerCase().includes(query) ||
                             r.targetName.toLowerCase().includes(query) ||
                             r.comment.toLowerCase().includes(query);
                           return matchType && matchStatus && matchRating && matchQuery;
@@ -5561,13 +5730,12 @@ export default function Home() {
                                   <span className="text-[9px] text-slate-400 font-mono uppercase bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">
                                     {r.authorRole}
                                   </span>
-                                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold border ${
-                                    r.status === "APPROVED" 
-                                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25" 
-                                      : r.status === "FLAGGED_ABUSIVE" 
-                                        ? "bg-rose-500/10 text-rose-400 border-rose-500/25" 
-                                        : "bg-slate-500/10 text-slate-400 border-slate-500/25"
-                                  }`}>
+                                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold border ${r.status === "APPROVED"
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+                                    : r.status === "FLAGGED_ABUSIVE"
+                                      ? "bg-rose-500/10 text-rose-400 border-rose-500/25"
+                                      : "bg-slate-500/10 text-slate-400 border-slate-500/25"
+                                    }`}>
                                     {r.status}
                                   </span>
                                 </div>
@@ -5785,45 +5953,43 @@ export default function Home() {
 
             {/* Visualizer Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-              
+
               {/* Event Driven flow simulation */}
               <div className="lg:col-span-2 glass rounded-2xl border border-[var(--glass-border)] p-6 flex flex-col justify-between min-h-[480px] relative overflow-hidden">
-                
+
                 {/* Visual flowchart */}
                 <div className="space-y-8 my-auto relative z-10">
                   <div className="flex justify-between items-center gap-4 relative">
-                    
+
                     {/* Background Connection Line */}
                     <div className="absolute top-[20px] left-[5%] right-[5%] h-1 bg-[var(--node-border)] -z-10 rounded"></div>
-                    <div 
-                      className={`absolute top-[20px] left-[5%] h-1 transition-all duration-700 -z-10 rounded ${
-                        sagaState === "rollback-started" || sagaState === "rollback-complete" 
-                          ? "bg-rose-500" 
-                          : sagaState === "completed" 
-                            ? "bg-emerald-500" 
-                            : "bg-sky-500"
-                      }`}
-                      style={{ 
-                        width: sagaState === "idle" ? "0%" 
-                             : sagaState === "order-created" ? "20%" 
-                             : sagaState === "tickets-reserved" ? "45%" 
-                             : sagaState === "promo-applied" ? "70%" 
-                             : sagaState === "payment-initiated" ? "90%" 
-                             : "100%" 
+                    <div
+                      className={`absolute top-[20px] left-[5%] h-1 transition-all duration-700 -z-10 rounded ${sagaState === "rollback-started" || sagaState === "rollback-complete"
+                        ? "bg-rose-500"
+                        : sagaState === "completed"
+                          ? "bg-emerald-500"
+                          : "bg-sky-500"
+                        }`}
+                      style={{
+                        width: sagaState === "idle" ? "0%"
+                          : sagaState === "order-created" ? "20%"
+                            : sagaState === "tickets-reserved" ? "45%"
+                              : sagaState === "promo-applied" ? "70%"
+                                : sagaState === "payment-initiated" ? "90%"
+                                  : "100%"
                       }}
                     ></div>
 
                     {/* Step 1 Node */}
                     <div className="flex flex-col items-center gap-2 w-1/5">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all-custom ${
-                        sagaState === "idle" 
-                          ? "border-[var(--node-border)] bg-[var(--node-bg)] text-[var(--text-secondary)]" 
-                          : sagaState === "order-created" 
-                            ? "border-sky-500 bg-sky-955 text-sky-400 shadow-md shadow-sky-900/30 scale-110" 
-                            : sagaState === "rollback-started" || sagaState === "rollback-complete"
-                              ? "border-rose-500 bg-rose-950/20 text-rose-400"
-                              : "border-emerald-500 bg-emerald-950/20 text-emerald-400"
-                      }`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all-custom ${sagaState === "idle"
+                        ? "border-[var(--node-border)] bg-[var(--node-bg)] text-[var(--text-secondary)]"
+                        : sagaState === "order-created"
+                          ? "border-sky-500 bg-sky-955 text-sky-400 shadow-md shadow-sky-900/30 scale-110"
+                          : sagaState === "rollback-started" || sagaState === "rollback-complete"
+                            ? "border-rose-500 bg-rose-950/20 text-rose-400"
+                            : "border-emerald-500 bg-emerald-950/20 text-emerald-400"
+                        }`}>
                         {sagaState === "idle" ? "1" : (sagaState === "order-created" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />)}
                       </div>
                       <span className="text-[10px] font-bold text-[var(--text-secondary)] text-center font-mono">Order-Service</span>
@@ -5831,15 +5997,14 @@ export default function Home() {
 
                     {/* Step 2 Node */}
                     <div className="flex flex-col items-center gap-2 w-1/5">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all-custom ${
-                        sagaState === "idle" || sagaState === "order-created" 
-                          ? "border-[var(--node-border)] bg-[var(--node-bg)] text-[var(--text-secondary)]" 
-                          : sagaState === "tickets-reserved" 
-                            ? "border-sky-500 bg-sky-955 text-sky-400 shadow-md shadow-sky-900/30 scale-110" 
-                            : sagaState === "rollback-started" || sagaState === "rollback-complete"
-                              ? "border-rose-500 bg-rose-950/20 text-rose-400"
-                              : "border-emerald-500 bg-emerald-950/20 text-emerald-400"
-                      }`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all-custom ${sagaState === "idle" || sagaState === "order-created"
+                        ? "border-[var(--node-border)] bg-[var(--node-bg)] text-[var(--text-secondary)]"
+                        : sagaState === "tickets-reserved"
+                          ? "border-sky-500 bg-sky-955 text-sky-400 shadow-md shadow-sky-900/30 scale-110"
+                          : sagaState === "rollback-started" || sagaState === "rollback-complete"
+                            ? "border-rose-500 bg-rose-950/20 text-rose-400"
+                            : "border-emerald-500 bg-emerald-950/20 text-emerald-400"
+                        }`}>
                         {sagaState === "idle" || sagaState === "order-created" ? "2" : (sagaState === "tickets-reserved" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />)}
                       </div>
                       <span className="text-[10px] font-bold text-[var(--text-secondary)] text-center font-mono">
@@ -5849,15 +6014,14 @@ export default function Home() {
 
                     {/* Step 3 Node */}
                     <div className="flex flex-col items-center gap-2 w-1/5">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all-custom ${
-                        sagaState === "idle" || sagaState === "order-created" || sagaState === "tickets-reserved"
-                          ? "border-[var(--node-border)] bg-[var(--node-bg)] text-[var(--text-secondary)]" 
-                          : sagaState === "promo-applied" 
-                            ? "border-sky-500 bg-sky-955 text-sky-400 shadow-md shadow-sky-905 scale-110" 
-                            : sagaState === "rollback-started" || sagaState === "rollback-complete"
-                              ? "border-rose-500 bg-rose-950/20 text-rose-400 animate-pulse"
-                              : "border-emerald-500 bg-emerald-950/20 text-emerald-400"
-                      }`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all-custom ${sagaState === "idle" || sagaState === "order-created" || sagaState === "tickets-reserved"
+                        ? "border-[var(--node-border)] bg-[var(--node-bg)] text-[var(--text-secondary)]"
+                        : sagaState === "promo-applied"
+                          ? "border-sky-500 bg-sky-955 text-sky-400 shadow-md shadow-sky-905 scale-110"
+                          : sagaState === "rollback-started" || sagaState === "rollback-complete"
+                            ? "border-rose-500 bg-rose-950/20 text-rose-400 animate-pulse"
+                            : "border-emerald-500 bg-emerald-950/20 text-emerald-400"
+                        }`}>
                         {sagaState === "idle" || sagaState === "order-created" || sagaState === "tickets-reserved" ? "3" : (sagaState === "promo-applied" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />)}
                       </div>
                       <span className="text-[10px] font-bold text-[var(--text-secondary)] text-center font-mono">
@@ -5867,15 +6031,14 @@ export default function Home() {
 
                     {/* Step 4 Node */}
                     <div className="flex flex-col items-center gap-2 w-1/5">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all-custom ${
-                        sagaState === "idle" || sagaState === "order-created" || sagaState === "tickets-reserved" || sagaState === "promo-applied"
-                          ? "border-[var(--node-border)] bg-[var(--node-bg)] text-[var(--text-secondary)]" 
-                          : sagaState === "payment-initiated" 
-                            ? "border-sky-500 bg-sky-955 text-sky-400 shadow-md shadow-sky-905 scale-110" 
-                            : sagaState === "rollback-started" || sagaState === "rollback-complete"
-                              ? "border-rose-500 bg-rose-950/20 text-rose-400 font-bold"
-                              : "border-emerald-500 bg-emerald-950/20 text-emerald-400"
-                      }`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all-custom ${sagaState === "idle" || sagaState === "order-created" || sagaState === "tickets-reserved" || sagaState === "promo-applied"
+                        ? "border-[var(--node-border)] bg-[var(--node-bg)] text-[var(--text-secondary)]"
+                        : sagaState === "payment-initiated"
+                          ? "border-sky-500 bg-sky-955 text-sky-400 shadow-md shadow-sky-905 scale-110"
+                          : sagaState === "rollback-started" || sagaState === "rollback-complete"
+                            ? "border-rose-500 bg-rose-950/20 text-rose-400 font-bold"
+                            : "border-emerald-500 bg-emerald-950/20 text-emerald-400"
+                        }`}>
                         {sagaState === "idle" || sagaState === "order-created" || sagaState === "tickets-reserved" || sagaState === "promo-applied" ? "4" : (sagaState === "payment-initiated" ? <RefreshCw className="w-4 h-4 animate-spin" /> : (sagaState === "rollback-started" || sagaState === "rollback-complete" ? "X" : <Check className="w-4 h-4" />))}
                       </div>
                       <span className="text-[10px] font-bold text-[var(--text-secondary)] text-center font-mono">
@@ -5885,13 +6048,12 @@ export default function Home() {
 
                     {/* Step 5 Node */}
                     <div className="flex flex-col items-center gap-2 w-1/5">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all-custom ${
-                        sagaState === "completed" 
-                          ? "border-emerald-500 bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" 
-                          : sagaState === "rollback-complete" 
-                            ? "border-rose-500 bg-rose-500 text-white shadow-lg shadow-rose-500/20"
-                            : "border-[var(--node-border)] bg-[var(--node-bg)] text-[var(--text-secondary)]"
-                      }`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all-custom ${sagaState === "completed"
+                        ? "border-emerald-500 bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                        : sagaState === "rollback-complete"
+                          ? "border-rose-500 bg-rose-500 text-white shadow-lg shadow-rose-500/20"
+                          : "border-[var(--node-border)] bg-[var(--node-bg)] text-[var(--text-secondary)]"
+                        }`}>
                         {sagaState === "completed" ? <Check className="w-4 h-4" /> : (sagaState === "rollback-complete" ? <X className="w-4 h-4" /> : "5")}
                       </div>
                       <span className="text-[10px] font-bold text-[var(--text-secondary)] text-center font-mono">
@@ -5911,7 +6073,7 @@ export default function Home() {
                   <ul className="text-xs text-[var(--text-secondary)] space-y-2 leading-relaxed list-disc pl-4">
                     <li>Each microservice acts independently, triggered by Kafka domain events.</li>
                     <li>
-                      {sagaType === "TICKET" 
+                      {sagaType === "TICKET"
                         ? "Row locking (SELECT FOR UPDATE) isolates ticket inventory updates before initiating payment processing."
                         : sagaType === "BOOTH"
                           ? "Before acquiring slot locks, Order-Service conducts an event-driven validation of the Vendor Profile state."
@@ -5945,10 +6107,10 @@ export default function Home() {
                         <span className="text-slate-600">[{log.time}]</span>{" "}
                         <span className="text-sky-400 font-bold">{log.service}:</span>{" "}
                         <span className={
-                          log.type === "success" ? "text-emerald-400" 
-                          : log.type === "error" ? "text-rose-400 font-semibold" 
-                          : log.type === "event" ? "text-indigo-400 italic" 
-                          : "text-[var(--text-primary)]"
+                          log.type === "success" ? "text-emerald-400"
+                            : log.type === "error" ? "text-rose-400 font-semibold"
+                              : log.type === "event" ? "text-indigo-400 italic"
+                                : "text-[var(--text-primary)]"
                         }>
                           {log.message}
                         </span>
@@ -5973,1007 +6135,1113 @@ export default function Home() {
           <div className="space-y-8 animate-[fadeIn_0.3s_ease-out]">
             {activeOrganizerProfile && (
               <div className="space-y-4">
-                <h3 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider flex items-center gap-1.5">
-                  <Layers className="w-4 h-4 text-sky-400" />
-                  My Listings ({events.filter(e => e.organizerId === activeOrganizerProfile.id).length})
-                </h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <h3 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-sky-400" />
+                    My Listings ({events.filter(e => e.organizerId === activeOrganizerProfile.id).length})
+                  </h3>
+
+                  {/* Search & Filter Toolbar */}
+                  <div className="flex flex-wrap gap-2.5 items-center font-sans">
+                    {/* Search Field */}
+                    <div className="relative w-full sm:w-60">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]">
+                        <Search className="w-3.5 h-3.5 text-sky-400" />
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Search title or location..."
+                        value={orgListingsSearch}
+                        onChange={(e) => setOrgListingsSearch(e.target.value)}
+                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 pl-9 pr-7 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500 font-sans"
+                      />
+                      {orgListingsSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setOrgListingsSearch("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Category Filter */}
+                    <select
+                      value={orgListingsCategory}
+                      onChange={(e) => setOrgListingsCategory(e.target.value)}
+                      className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500 cursor-pointer font-sans"
+                    >
+                      <option value="ALL" className="bg-[var(--node-bg)] text-[var(--text-primary)]">All Categories</option>
+                      <option value="Technology" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Technology</option>
+                      <option value="Music" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Music</option>
+                      <option value="Food & Drink" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Food & Drink</option>
+                      <option value="Arts & Crafts" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Arts & Crafts</option>
+                      <option value="Health & Wellness" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Health & Wellness</option>
+                    </select>
+
+                    {/* Status Filter */}
+                    <select
+                      value={orgListingsStatus}
+                      onChange={(e) => setOrgListingsStatus(e.target.value)}
+                      className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-sky-500 cursor-pointer font-sans"
+                    >
+                      <option value="ALL" className="bg-[var(--node-bg)] text-[var(--text-primary)]">All Statuses</option>
+                      <option value="APPROVED" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Approved</option>
+                      <option value="PENDING" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Pending</option>
+                      <option value="REJECTED" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Rejected</option>
+                    </select>
+
+                    {(orgListingsSearch || orgListingsCategory !== "ALL" || orgListingsStatus !== "ALL") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOrgListingsSearch("");
+                          setOrgListingsCategory("ALL");
+                          setOrgListingsStatus("ALL");
+                        }}
+                        className="bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition font-mono uppercase"
+                      >
+                        Clear Filters
+                      </button>
+                    )}
+                  </div>
+                </div>
 
                 <div className="overflow-x-auto rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] max-h-[480px] overflow-y-auto">
-                  {events.filter(e => e.organizerId === activeOrganizerProfile.id).length === 0 ? (
-                    <div className="text-center text-xs text-[var(--text-secondary)] py-12">
-                      No organized events listed yet. Use the form on the left to publish your first event.
-                    </div>
-                  ) : (
-                    <table className="w-full text-left border-collapse min-w-[800px]">
-                      <thead>
-                        <tr className="border-b border-[var(--glass-border)] bg-slate-900/40 text-[10px] font-mono text-[var(--text-secondary)] uppercase tracking-wider sticky top-0 backdrop-blur-md z-10">
-                          <th className="py-3 px-4 font-bold">Event Details</th>
-                          <th className="py-3 px-4 font-bold">Category</th>
-                          <th className="py-3 px-4 font-bold">Date & Venue</th>
-                          <th className="py-3 px-4 font-bold text-right">Price</th>
-                          <th className="py-3 px-4 font-bold">Tickets & Booths</th>
-                          <th className="py-3 px-4 font-bold">Status</th>
-                          <th className="py-3 px-4 font-bold text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--glass-border)] text-xs">
-                        {events.filter(e => e.organizerId === activeOrganizerProfile.id).map(ev => {
-                          const eventBooths = booths.filter(b => b.eventId === ev.id);
-                          return (
-                            <tr key={ev.id} className="hover:bg-slate-800/20 transition-colors">
-                              <td className="py-3 px-4 align-middle">
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-bold text-[var(--text-primary)] text-sm">{ev.title}</span>
-                                  {ev.isSponsored && (
-                                    <div className="flex">
-                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold rounded">
-                                        <Star className="w-2.5 h-2.5 fill-current" /> SPONSORED
+                  {(() => {
+                    const rawOrgEvents = events.filter(e => e.organizerId === activeOrganizerProfile.id);
+                    if (rawOrgEvents.length === 0) {
+                      return (
+                        <div className="text-center text-xs text-[var(--text-secondary)] py-12">
+                          No organized events listed yet. Use the form on the left to publish your first event.
+                        </div>
+                      );
+                    }
+
+                    const filteredOrgEvents = rawOrgEvents.filter(ev => {
+                      if (orgListingsSearch) {
+                        const q = orgListingsSearch.toLowerCase();
+                        const matchTitle = ev.title.toLowerCase().includes(q);
+                        const matchLoc = ev.location.toLowerCase().includes(q);
+                        const venueName = ev.venueId ? (venues.find(v => v.id === ev.venueId)?.name || "") : "";
+                        const matchVenue = venueName.toLowerCase().includes(q);
+                        if (!matchTitle && !matchLoc && !matchVenue) return false;
+                      }
+                      if (orgListingsCategory !== "ALL" && ev.category !== orgListingsCategory) {
+                        return false;
+                      }
+                      if (orgListingsStatus !== "ALL") {
+                        const status = ev.moderationStatus || "APPROVED";
+                        if (status !== orgListingsStatus) return false;
+                      }
+                      return true;
+                    });
+
+                    if (filteredOrgEvents.length === 0) {
+                      return (
+                        <div className="text-center text-xs text-[var(--text-secondary)] py-12 space-y-2">
+                          <p>No listings match the current search or filters.</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOrgListingsSearch("");
+                              setOrgListingsCategory("ALL");
+                              setOrgListingsStatus("ALL");
+                            }}
+                            className="bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 px-3 py-1 rounded-lg text-[10px] font-bold transition"
+                          >
+                            Reset Search & Filters
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <table className="w-full text-left border-collapse min-w-[800px]">
+                        <thead>
+                          <tr className="border-b border-[var(--glass-border)] bg-slate-900/40 text-[10px] font-mono text-[var(--text-secondary)] uppercase tracking-wider sticky top-0 backdrop-blur-md z-10">
+                            <th className="py-3 px-4 font-bold">Event Details</th>
+                            <th className="py-3 px-4 font-bold">Category</th>
+                            <th className="py-3 px-4 font-bold">Date & Venue</th>
+                            <th className="py-3 px-4 font-bold text-right">Price</th>
+                            <th className="py-3 px-4 font-bold">Tickets & Booths</th>
+                            <th className="py-3 px-4 font-bold">Status</th>
+                            <th className="py-3 px-4 font-bold text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--glass-border)] text-xs">
+                          {filteredOrgEvents.map(ev => {
+                            const eventBooths = booths.filter(b => b.eventId === ev.id);
+                            return (
+                              <tr key={ev.id} className="hover:bg-slate-800/20 transition-colors">
+                                <td className="py-3 px-4 align-middle">
+                                  <div className="flex flex-col gap-1">
+                                    <span className="font-bold text-[var(--text-primary)] text-sm">{ev.title}</span>
+                                    {ev.isSponsored && (
+                                      <div className="flex">
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold rounded">
+                                          <Star className="w-2.5 h-2.5 fill-current" /> SPONSORED
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 align-middle">
+                                  <span className="px-2 py-0.5 rounded bg-slate-800/60 border border-[var(--glass-border)] text-[var(--text-secondary)] text-[10px]">
+                                    {ev.category}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 align-middle">
+                                  <div className="space-y-0.5">
+                                    <div className="font-semibold text-[var(--text-primary)]">{ev.date}</div>
+                                    <div className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1">
+                                      <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                      <span className="truncate max-w-[200px]" title={ev.venueId ? venues.find(v => v.id === ev.venueId)?.name : ev.location}>
+                                        {ev.venueId ? venues.find(v => v.id === ev.venueId)?.name : "Manual"} ({ev.location})
                                       </span>
                                     </div>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 align-middle">
-                                <span className="px-2 py-0.5 rounded bg-slate-800/60 border border-[var(--glass-border)] text-[var(--text-secondary)] text-[10px]">
-                                  {ev.category}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 align-middle">
-                                <div className="space-y-0.5">
-                                  <div className="font-semibold text-[var(--text-primary)]">{ev.date}</div>
-                                  <div className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1">
-                                    <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                                    <span className="truncate max-w-[200px]" title={ev.venueId ? venues.find(v => v.id === ev.venueId)?.name : ev.location}>
-                                      {ev.venueId ? venues.find(v => v.id === ev.venueId)?.name : "Manual"} ({ev.location})
-                                    </span>
                                   </div>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 align-middle text-right font-mono font-bold text-sky-400">
-                                ${ev.price}
-                              </td>
-                              <td className="py-3 px-4 align-middle">
-                                <div className="space-y-1 text-[11px]">
-                                  <div>
-                                    Tickets: <span className="font-mono font-bold text-[var(--text-primary)]">{ev.ticketsSold}</span>
-                                    <span className="text-[var(--text-secondary)]"> / {ev.ticketInventory}</span>
+                                </td>
+                                <td className="py-3 px-4 align-middle text-right font-mono font-bold text-sky-400">
+                                  ${ev.price}
+                                </td>
+                                <td className="py-3 px-4 align-middle">
+                                  <div className="space-y-1 text-[11px]">
+                                    <div>
+                                      Tickets: <span className="font-mono font-bold text-[var(--text-primary)]">{ev.ticketsSold}</span>
+                                      <span className="text-[var(--text-secondary)]"> / {ev.ticketInventory}</span>
+                                    </div>
+                                    <div>
+                                      Booths: <span className="font-mono font-bold text-[var(--text-primary)]">{eventBooths.length}</span>
+                                      <span className="text-[var(--text-secondary)]"> allocated</span>
+                                    </div>
                                   </div>
-                                  <div>
-                                    Booths: <span className="font-mono font-bold text-[var(--text-primary)]">{eventBooths.length}</span>
-                                    <span className="text-[var(--text-secondary)]"> allocated</span>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 align-middle">
-                                <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border ${
-                                  ev.moderationStatus === "APPROVED" || ev.moderationStatus === undefined
+                                </td>
+                                <td className="py-3 px-4 align-middle">
+                                  <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border ${ev.moderationStatus === "APPROVED" || ev.moderationStatus === undefined
                                     ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
                                     : ev.moderationStatus === "PENDING"
                                       ? "bg-amber-500/10 text-amber-400 border-amber-500/25"
                                       : "bg-rose-500/10 text-rose-400 border-rose-500/25"
-                                }`}>
-                                  {ev.moderationStatus || "APPROVED"}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 align-middle text-right">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDuplicateEvent(ev.id)}
-                                    className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 text-[10px] py-1 px-2.5 rounded-lg font-semibold transition"
-                                  >
-                                    Duplicate
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOrgEditingEventId(ev.id);
-                                      setNewEventTitle(ev.title);
-                                      setNewEventDesc(ev.description || "");
-                                      setNewEventLoc(ev.location);
-                                      setNewEventDate(ev.date);
-                                      setNewEventPrice(ev.price.toString());
-                                      setNewEventInventory(ev.ticketInventory.toString());
-                                      setAdminSelectedVenueId(ev.venueId || "none");
-                                      setNewEventCity(ev.city || "");
-                                      setNewEventState(ev.state || "");
-                                      setNewEventZipcode(ev.zipcode || "");
-                                      setNewEventLat(ev.latitude ? ev.latitude.toString() : "");
-                                      setNewEventLng(ev.longitude ? ev.longitude.toString() : "");
-                                      setNewEventIsSponsored(!!ev.isSponsored);
-                                      setOrgEventSponsorPackages(ev.sponsorPackages || []);
-                                      
-                                      if (ev.ticketClasses && ev.ticketClasses.length > 0) {
-                                        setEnableTiers(true);
-                                        const eb = ev.ticketClasses.find(tc => tc.name === "Early Bird");
-                                        const ga = ev.ticketClasses.find(tc => tc.name === "General Admission");
-                                        const vip = ev.ticketClasses.find(tc => tc.name === "VIP");
-                                        setEbPrice(eb ? eb.price.toString() : "");
-                                        setEbInv(eb ? eb.inventory.toString() : "");
-                                        setGaPriceForm(ga ? ga.price.toString() : "");
-                                        setGaInvForm(ga ? ga.inventory.toString() : "");
-                                        setVipPriceForm(vip ? vip.price.toString() : "");
-                                        setVipInvForm(vip ? vip.inventory.toString() : "");
-                                      } else {
-                                        setEnableTiers(false);
-                                        setEbPrice("");
-                                        setEbInv("");
-                                        setGaPriceForm("");
-                                        setGaInvForm("");
-                                        setVipPriceForm("");
-                                        setVipInvForm("");
-                                      }
+                                    }`}>
+                                    {ev.moderationStatus || "APPROVED"}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 align-middle text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDuplicateEvent(ev.id)}
+                                      className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 text-[10px] py-1 px-2.5 rounded-lg font-semibold transition"
+                                    >
+                                      Duplicate
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOrgEditingEventId(ev.id);
+                                        setNewEventTitle(ev.title);
+                                        setNewEventDesc(ev.description || "");
+                                        setNewEventLoc(ev.location);
+                                        setNewEventDate(ev.date);
+                                        setNewEventPrice(ev.price.toString());
+                                        setNewEventInventory(ev.ticketInventory.toString());
+                                        setAdminSelectedVenueId(ev.venueId || "none");
+                                        setNewEventCity(ev.city || "");
+                                        setNewEventState(ev.state || "");
+                                        setNewEventZipcode(ev.zipcode || "");
+                                        setNewEventLat(ev.latitude ? ev.latitude.toString() : "");
+                                        setNewEventLng(ev.longitude ? ev.longitude.toString() : "");
+                                        setNewEventIsSponsored(!!ev.isSponsored);
+                                        setOrgEventSponsorPackages(ev.sponsorPackages || []);
 
-                                      const linkedVendors = eventBooths
-                                        .map(b => vendorProfiles.find(v => v.businessName === b.vendorBusinessName)?.id)
-                                        .filter((id): id is string => !!id);
-                                      setOrgSelectedVendorIds(linkedVendors);
-                                    }}
-                                    className="bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-sky-400 text-[10px] py-1 px-2.5 rounded-lg font-semibold transition"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteEvent(ev.id)}
-                                    className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 p-1.5 rounded-lg transition"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
+                                        if (ev.ticketClasses && ev.ticketClasses.length > 0) {
+                                          setEnableTiers(true);
+                                          const eb = ev.ticketClasses.find(tc => tc.name === "Early Bird");
+                                          const ga = ev.ticketClasses.find(tc => tc.name === "General Admission");
+                                          const vip = ev.ticketClasses.find(tc => tc.name === "VIP");
+                                          setEbPrice(eb ? eb.price.toString() : "");
+                                          setEbInv(eb ? eb.inventory.toString() : "");
+                                          setGaPriceForm(ga ? ga.price.toString() : "");
+                                          setGaInvForm(ga ? ga.inventory.toString() : "");
+                                          setVipPriceForm(vip ? vip.price.toString() : "");
+                                          setVipInvForm(vip ? vip.inventory.toString() : "");
+                                        } else {
+                                          setEnableTiers(false);
+                                          setEbPrice("");
+                                          setEbInv("");
+                                          setGaPriceForm("");
+                                          setGaInvForm("");
+                                          setVipPriceForm("");
+                                          setVipInvForm("");
+                                        }
+
+                                        const linkedVendors = eventBooths
+                                          .map(b => vendorProfiles.find(v => v.businessName === b.vendorBusinessName)?.id)
+                                          .filter((id): id is string => !!id);
+                                        setOrgSelectedVendorIds(linkedVendors);
+                                      }}
+                                      className="bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-sky-400 text-[10px] py-1 px-2.5 rounded-lg font-semibold transition"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteEvent(ev.id)}
+                                      className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 p-1.5 rounded-lg transition"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    );
+                  })()}
                 </div>
               </div>
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            
-            {/* Left Column: Event Onboarding or Event Creator / Editor Form */}
-            <div className="lg:col-span-2 space-y-6">
-              {!activeOrganizerProfile ? (
-                <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-sky-500/10 rounded-lg text-sky-400 border border-sky-500/25">
-                      <ShieldAlert className="w-5 h-5 animate-pulse" />
-                    </div>
-                    <div>
-                      <h4 className="text-base font-bold text-[var(--text-primary)]">Event Organizer Verification</h4>
-                      <p className="text-xs text-[var(--text-secondary)] mt-1">Register and verify your organization credentials via OTP to manage and publish your events.</p>
-                    </div>
-                  </div>
 
-                  {organizerRegStep === "form" ? (
-                    <form onSubmit={handleRegisterOrganizerProfile} className="space-y-3 pt-2">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Organization Name *</label>
-                        <input
-                          type="text"
-                          required
-                          value={regOrgName}
-                          onChange={(e) => setRegOrgName(e.target.value)}
-                          placeholder="e.g. Acme Tech Events LLC"
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                        />
+              {/* Left Column: Event Onboarding or Event Creator / Editor Form */}
+              <div className="lg:col-span-2 space-y-6">
+                {!activeOrganizerProfile ? (
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-sky-500/10 rounded-lg text-sky-400 border border-sky-500/25">
+                        <ShieldAlert className="w-5 h-5 animate-pulse" />
                       </div>
+                      <div>
+                        <h4 className="text-base font-bold text-[var(--text-primary)]">Event Organizer Verification</h4>
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">Register and verify your organization credentials via OTP to manage and publish your events.</p>
+                      </div>
+                    </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                    {organizerRegStep === "form" ? (
+                      <form onSubmit={handleRegisterOrganizerProfile} className="space-y-3 pt-2">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Contact Person *</label>
+                          <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Organization Name *</label>
                           <input
                             type="text"
                             required
-                            value={regOrgContactName}
-                            onChange={(e) => setRegOrgContactName(e.target.value)}
-                            placeholder="e.g. John Doe"
+                            value={regOrgName}
+                            onChange={(e) => setRegOrgName(e.target.value)}
+                            placeholder="e.g. Acme Tech Events LLC"
                             className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
                           />
                         </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Contact Person *</label>
+                            <input
+                              type="text"
+                              required
+                              value={regOrgContactName}
+                              onChange={(e) => setRegOrgContactName(e.target.value)}
+                              placeholder="e.g. John Doe"
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Phone Number *</label>
+                            <input
+                              type="tel"
+                              required
+                              value={regOrgPhone}
+                              onChange={(e) => setRegOrgPhone(e.target.value)}
+                              placeholder="e.g. +1 555-0199"
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                        </div>
+
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Phone Number *</label>
+                          <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Email Address *</label>
                           <input
-                            type="tel"
+                            type="email"
                             required
-                            value={regOrgPhone}
-                            onChange={(e) => setRegOrgPhone(e.target.value)}
-                            placeholder="e.g. +1 555-0199"
+                            value={regOrgEmail}
+                            onChange={(e) => setRegOrgEmail(e.target.value)}
+                            placeholder="organizer@acme.com"
                             className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
                           />
                         </div>
-                      </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Email Address *</label>
-                        <input
-                          type="email"
-                          required
-                          value={regOrgEmail}
-                          onChange={(e) => setRegOrgEmail(e.target.value)}
-                          placeholder="organizer@acme.com"
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                        />
-                      </div>
-
-                      <button
-                        type="submit"
-                        className="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-2.5 rounded-xl text-xs transition"
-                      >
-                        Register Organizer
-                      </button>
-                    </form>
-                  ) : (
-                    <form onSubmit={handleVerifyOrganizerOtp} className="space-y-4 pt-2">
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between items-center">
-                          <label className="text-xs text-[var(--text-secondary)] font-semibold">Enter SMS Verification OTP</label>
-                          <span className="text-[10px] text-slate-500">Test OTP: <strong>123456</strong></span>
-                        </div>
-                        <input
-                          type="text"
-                          maxLength={6}
-                          value={organizerOtpInput}
-                          onChange={(e) => setOrganizerOtpInput(e.target.value)}
-                          placeholder="e.g. 123456"
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2.5 text-center text-sm tracking-widest text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono font-bold"
-                        />
-                        {organizerOtpError && (
-                          <p className="text-rose-400 text-xs font-semibold text-center mt-1">{organizerOtpError}</p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOrganizerRegStep("form");
-                            setPendingOrganizerProfile(null);
-                          }}
-                          className="w-1/2 bg-[var(--glass-bg)] border border-[var(--glass-border)] text-xs font-semibold py-2 rounded-xl text-[var(--text-secondary)] hover:border-[var(--text-secondary)]/50"
-                        >
-                          Back
-                        </button>
                         <button
                           type="submit"
-                          className="w-1/2 bg-sky-500 hover:bg-sky-400 text-white font-bold py-2 rounded-xl text-xs transition shadow shadow-sky-955"
+                          className="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-2.5 rounded-xl text-xs transition"
                         >
-                          Verify & Access
+                          Register Organizer
                         </button>
-                      </div>
-                    </form>
-                  )}
-                </div>
-              ) : (
-                /* Event Creator / Editor Form */
-                <div className="space-y-4">
-                  <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
-                    <Plus className="w-6 h-6 text-sky-400" />
-                    {orgEditingEventId ? "Update Event Details" : "Organize New Event"}
-                  </h2>
-                  <form onSubmit={handleOrganizerSaveEvent} className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-[var(--text-secondary)] font-bold">Event Title *</label>
-                        <input
-                          type="text"
-                          required
-                          value={newEventTitle}
-                          onChange={(e) => setNewEventTitle(e.target.value)}
-                          placeholder="e.g. Blockchain & Web3 Hackathon"
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-[var(--text-secondary)] font-bold">Category</label>
-                        <select
-                          value={newEventCategory}
-                          onChange={(e) => setNewEventCategory(e.target.value)}
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
-                        >
-                          <option value="Technology">Technology</option>
-                          <option value="Music">Music</option>
-                          <option value="Food & Drink">Food & Drink</option>
-                          <option value="Sports">Sports</option>
-                          <option value="Gaming">Gaming</option>
-                          <option value="Art & Design">Art & Design</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-[var(--text-secondary)] font-bold">Description</label>
-                      <textarea
-                        rows={2}
-                        value={newEventDesc}
-                        onChange={(e) => setNewEventDesc(e.target.value)}
-                        placeholder="Provide detailed description of domain agenda and ticketing policies."
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full resize-none"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-[var(--text-secondary)] font-bold">Event Date *</label>
-                        <input
-                          type="date"
-                          required
-                          value={newEventDate}
-                          onChange={(e) => setNewEventDate(e.target.value)}
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono"
-                        />
-                      </div>
-
-                      <div className="bg-[var(--glass-bg)] rounded-xl p-3 border border-[var(--glass-border)] flex items-center justify-between">
-                        <div>
-                          <span className="text-xs font-bold text-[var(--text-primary)] block">Enable Multiple Ticket Tiers?</span>
-                          <span className="text-[9px] text-[var(--text-secondary)]">Configure Early Bird, GA, and VIP.</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setEnableTiers(!enableTiers)}
-                          className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${
-                            enableTiers ? "bg-sky-500" : "bg-slate-700"
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                              enableTiers ? "translate-x-5" : "translate-x-1"
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-
-                    {!enableTiers ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Price ($) *</label>
-                          <input
-                            type="number"
-                            required={!enableTiers}
-                            min={0}
-                            value={newEventPrice}
-                            onChange={(e) => setNewEventPrice(e.target.value)}
-                            placeholder="e.g. 49"
-                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono"
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Inventory *</label>
-                          <input
-                            type="number"
-                            required={!enableTiers}
-                            min={10}
-                            value={newEventInventory}
-                            onChange={(e) => setNewEventInventory(e.target.value)}
-                            placeholder="e.g. 500"
-                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono"
-                          />
-                        </div>
-                      </div>
+                      </form>
                     ) : (
-                      <div className="p-3 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl space-y-3 text-xs">
-                        <span className="text-[10px] text-sky-400 font-bold block font-mono">Ticket Tiers Configuration</span>
-                        
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Early Bird ($)</label>
-                            <input
-                              type="number"
-                              required={enableTiers}
-                              value={ebPrice}
-                              onChange={(e) => setEbPrice(e.target.value)}
-                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                            />
+                      <form onSubmit={handleVerifyOrganizerOtp} className="space-y-4 pt-2">
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <label className="text-xs text-[var(--text-secondary)] font-semibold">Enter SMS Verification OTP</label>
+                            <span className="text-[10px] text-slate-500">Test OTP: <strong>123456</strong></span>
                           </div>
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">GA ($)</label>
-                            <input
-                              type="number"
-                              required={enableTiers}
-                              value={gaPriceForm}
-                              onChange={(e) => setGaPriceForm(e.target.value)}
-                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">VIP ($)</label>
-                            <input
-                              type="number"
-                              required={enableTiers}
-                              value={vipPriceForm}
-                              onChange={(e) => setVipPriceForm(e.target.value)}
-                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Early Bird Inv</label>
-                            <input
-                              type="number"
-                              required={enableTiers}
-                              value={ebInv}
-                              onChange={(e) => setEbInv(e.target.value)}
-                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">GA Inv</label>
-                            <input
-                              type="number"
-                              required={enableTiers}
-                              value={gaInvForm}
-                              onChange={(e) => setGaInvForm(e.target.value)}
-                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">VIP Inv</label>
-                            <input
-                              type="number"
-                              required={enableTiers}
-                              value={vipInvForm}
-                              onChange={(e) => setVipInvForm(e.target.value)}
-                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-[var(--text-secondary)] font-bold block">Allocate Venue Property</label>
-                        <select
-                          value={adminSelectedVenueId}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setAdminSelectedVenueId(val);
-                            if (val !== "none") {
-                              const vn = venues.find(v => v.id === val);
-                              if (vn) {
-                                setNewEventLoc(`${vn.name}, ${vn.location}`);
-                              }
-                            }
-                          }}
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
-                        >
-                          <option value="none">None (Use Manual Location)</option>
-                          {venues.map(v => (
-                            <option key={v.id} value={v.id}>
-                              {v.name} (Max Cap: {v.capacity} pax)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-[var(--text-secondary)] font-bold">Address/Location *</label>
-                        <input
-                          type="text"
-                          required
-                          value={newEventLoc}
-                          onChange={(e) => setNewEventLoc(e.target.value)}
-                          placeholder="Enter event venue address..."
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Geocoding parameters auto-fill */}
-                    <div className="p-3 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl space-y-2 text-xs">
-                      <span className="text-[10px] text-sky-400 font-bold block font-mono">Geographical details (Auto-filled on address change)</span>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">City</label>
                           <input
                             type="text"
-                            value={newEventCity}
-                            onChange={(e) => setNewEventCity(e.target.value)}
-                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-[10px] text-[var(--text-primary)] w-full focus:outline-none"
+                            maxLength={6}
+                            value={organizerOtpInput}
+                            onChange={(e) => setOrganizerOtpInput(e.target.value)}
+                            placeholder="e.g. 123456"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2.5 text-center text-sm tracking-widest text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono font-bold"
                           />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">State</label>
-                          <input
-                            type="text"
-                            value={newEventState}
-                            onChange={(e) => setNewEventState(e.target.value)}
-                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-[10px] text-[var(--text-primary)] w-full focus:outline-none"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Zipcode</label>
-                          <input
-                            type="text"
-                            value={newEventZipcode}
-                            onChange={(e) => setNewEventZipcode(e.target.value)}
-                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-[10px] text-[var(--text-primary)] w-full focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Dynamic Vendor Selection Grid */}
-                    <div className="space-y-2.5 pt-2 border-t border-[var(--glass-border)]">
-                      <div>
-                        <span className="text-xs font-bold text-[var(--text-primary)] block">Select Vendors for Event</span>
-                        <span className="text-[10px] text-[var(--text-secondary)]">
-                          {newEventDate 
-                            ? `Showing vendor availability for event date: ${newEventDate}`
-                            : "Select an event date above to evaluate vendor availability."}
-                        </span>
-                      </div>
-
-                      <div className="glass rounded-xl border border-[var(--glass-border)] overflow-hidden">
-                        <div className="max-h-52 overflow-y-auto space-y-1.5 p-3 text-xs">
-                          {vendorProfiles.length === 0 ? (
-                            <p className="text-[11px] text-[var(--text-secondary)] italic text-center py-4">No registered vendors in catalog.</p>
-                          ) : (
-                            vendorProfiles.map(vendor => {
-                              const dateMatches = newEventDate && vendor.availableDates?.includes(newEventDate);
-                              
-                              const isBooked = booths.some(b => 
-                                b.vendorBusinessName === vendor.businessName && 
-                                b.status === "SOLD" && 
-                                events.find(ev => ev.id === b.eventId)?.date === newEventDate &&
-                                b.eventId !== orgEditingEventId
-                              );
-
-                              const isAvailable = dateMatches && !isBooked;
-                              const isChecked = orgSelectedVendorIds.includes(vendor.id);
-
-                              return (
-                                <div 
-                                  key={vendor.id} 
-                                  className={`flex items-center justify-between p-2.5 rounded-lg border transition ${
-                                    isAvailable 
-                                      ? "border-[var(--glass-border)] bg-[var(--input-bg)] text-[var(--text-primary)]" 
-                                      : "border-slate-800 bg-slate-900/10 text-slate-500 opacity-60"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <input
-                                      type="checkbox"
-                                      disabled={!isAvailable}
-                                      checked={isChecked}
-                                      onChange={() => {
-                                        if (isChecked) {
-                                          setOrgSelectedVendorIds(prev => prev.filter(id => id !== vendor.id));
-                                        } else {
-                                          setOrgSelectedVendorIds(prev => [...prev, vendor.id]);
-                                        }
-                                      }}
-                                      className="rounded border-slate-700 bg-transparent text-sky-500 focus:ring-0 focus:ring-offset-0 disabled:opacity-30 cursor-pointer"
-                                    />
-                                    <div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-bold">{vendor.businessName}</span>
-                                        <span className="text-[9px] bg-sky-500/10 border border-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded font-bold">
-                                          {vendor.category}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)] mt-0.5">
-                                        <span>Rating:</span>
-                                        {renderStars(getAverageRating("VENDOR", vendor.id))}
-                                        <span>•</span>
-                                        <span className="font-bold text-sky-400">${vendor.pricing}/event</span>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  <div>
-                                    {isAvailable ? (
-                                      <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
-                                        Available
-                                      </span>
-                                    ) : (
-                                      <span className="text-[9px] bg-rose-500/10 border border-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
-                                        {isBooked ? "Booked" : "Unavailable"}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })
+                          {organizerOtpError && (
+                            <p className="text-rose-400 text-xs font-semibold text-center mt-1">{organizerOtpError}</p>
                           )}
                         </div>
-                      </div>
-                    </div>
 
-                    {/* Sponsored Badge */}
-                    <div className="bg-[var(--glass-bg)] rounded-xl p-3.5 border border-[var(--glass-border)] flex items-center justify-between">
-                      <div>
-                        <span className="text-xs font-bold text-[var(--text-primary)] block">Feature as Sponsored Event?</span>
-                        <span className="text-[10px] text-[var(--text-secondary)]">Sponsored events display with gold border highlight and badge.</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setNewEventIsSponsored(!newEventIsSponsored)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                          newEventIsSponsored ? "bg-amber-500" : "bg-sky-500"
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            newEventIsSponsored ? "translate-x-6" : "translate-x-1"
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Sponsorship Packages Section */}
-                    <div className="glass rounded-xl p-4 border border-[var(--glass-border)] space-y-4">
-                      <div>
-                        <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Event Sponsor Packages</h4>
-                        <p className="text-[10px] text-[var(--text-secondary)]">Configure sponsorship tiers with specific pricing and benefits to invite brand sponsorships.</p>
-                      </div>
-
-                      {/* Package Add Form */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end bg-white/5 p-3 rounded-lg border border-white/5">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-[var(--text-secondary)] block uppercase">Tier/Package Name</label>
-                          <input
-                            type="text"
-                            value={newPackageName}
-                            onChange={(e) => setNewPackageName(e.target.value)}
-                            placeholder="e.g. Platinum Tier"
-                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-[var(--text-secondary)] block uppercase">Price ($)</label>
-                          <input
-                            type="number"
-                            value={newPackagePrice}
-                            onChange={(e) => setNewPackagePrice(e.target.value)}
-                            placeholder="e.g. 5000"
-                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500 font-mono"
-                          />
-                        </div>
-                        <div className="space-y-1 md:col-span-3">
-                          <label className="text-[9px] font-bold text-[var(--text-secondary)] block uppercase">Benefits (comma-separated list)</label>
-                          <input
-                            type="text"
-                            value={newPackageBenefits}
-                            onChange={(e) => setNewPackageBenefits(e.target.value)}
-                            placeholder="e.g. Logo on website, 5 VIP Passes, Logo on Stage Banner"
-                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                          />
-                        </div>
-                        <div className="md:col-span-3 flex justify-end">
+                        <div className="flex gap-3">
                           <button
                             type="button"
-                            onClick={handleAddSponsorPackage}
-                            className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-1.5 px-4 rounded-lg text-[10px] transition font-outfit"
+                            onClick={() => {
+                              setOrganizerRegStep("form");
+                              setPendingOrganizerProfile(null);
+                            }}
+                            className="w-1/2 bg-[var(--glass-bg)] border border-[var(--glass-border)] text-xs font-semibold py-2 rounded-xl text-[var(--text-secondary)] hover:border-[var(--text-secondary)]/50"
                           >
-                            + Add Tier Package
+                            Back
+                          </button>
+                          <button
+                            type="submit"
+                            className="w-1/2 bg-sky-500 hover:bg-sky-400 text-white font-bold py-2 rounded-xl text-xs transition shadow shadow-sky-955"
+                          >
+                            Verify & Access
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                ) : (
+                  /* Event Creator / Editor Form */
+                  <div className="space-y-4">
+                    <h2 className="text-2xl font-bold font-display text-[var(--text-primary)] flex items-center gap-2 font-outfit">
+                      <Plus className="w-6 h-6 text-sky-400" />
+                      {orgEditingEventId ? "Update Event Details" : "Organize New Event"}
+                    </h2>
+                    <form onSubmit={handleOrganizerSaveEvent} className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Event Title *</label>
+                          <input
+                            type="text"
+                            required
+                            value={newEventTitle}
+                            onChange={(e) => setNewEventTitle(e.target.value)}
+                            placeholder="e.g. Blockchain & Web3 Hackathon"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Category</label>
+                          <select
+                            value={newEventCategory}
+                            onChange={(e) => setNewEventCategory(e.target.value)}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
+                          >
+                            <option value="Technology">Technology</option>
+                            <option value="Music">Music</option>
+                            <option value="Food & Drink">Food & Drink</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Gaming">Gaming</option>
+                            <option value="Art & Design">Art & Design</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-[var(--text-secondary)] font-bold">Description</label>
+                        <textarea
+                          rows={2}
+                          value={newEventDesc}
+                          onChange={(e) => setNewEventDesc(e.target.value)}
+                          placeholder="Provide detailed description of domain agenda and ticketing policies."
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-sky-500 w-full resize-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Event Date *</label>
+                          <input
+                            type="date"
+                            required
+                            value={newEventDate}
+                            onChange={(e) => setNewEventDate(e.target.value)}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono"
+                          />
+                        </div>
+
+                        <div className="bg-[var(--glass-bg)] rounded-xl p-3 border border-[var(--glass-border)] flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-[var(--text-primary)] block">Enable Multiple Ticket Tiers?</span>
+                            <span className="text-[9px] text-[var(--text-secondary)]">Configure Early Bird, GA, and VIP.</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEnableTiers(!enableTiers)}
+                            className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${enableTiers ? "bg-sky-500" : "bg-slate-700"
+                              }`}
+                          >
+                            <span
+                              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${enableTiers ? "translate-x-5" : "translate-x-1"
+                                }`}
+                            />
                           </button>
                         </div>
                       </div>
 
-                      {/* Current Packages List */}
-                      <div className="space-y-2">
-                        {orgEventSponsorPackages.length === 0 ? (
-                          <p className="text-[10px] text-[var(--text-secondary)] italic text-center py-2">No sponsorship tiers configured yet. Add at least one above to display sponsorship opportunities.</p>
-                        ) : (
-                          orgEventSponsorPackages.map(pkg => (
-                            <div key={pkg.id} className="flex justify-between items-center bg-[var(--input-bg)] p-2 rounded-lg border border-[var(--input-border)] text-xs">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-[var(--text-primary)]">{pkg.name}</span>
-                                  <span className="text-sky-400 font-mono font-bold">${pkg.price}</span>
-                                </div>
-                                <p className="text-[9px] text-[var(--text-secondary)] mt-0.5">Benefits: {pkg.benefits.join(", ")}</p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={(e) => handleRemoveSponsorPackage(pkg.id, e)}
-                                className="text-rose-400 hover:text-rose-300 text-[10px] py-1 px-2 hover:bg-rose-500/10 rounded-lg transition"
-                              >
-                                Remove
-                              </button>
+                      {!enableTiers ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Price ($) *</label>
+                            <input
+                              type="number"
+                              required={!enableTiers}
+                              min={0}
+                              value={newEventPrice}
+                              onChange={(e) => setNewEventPrice(e.target.value)}
+                              placeholder="e.g. 49"
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-[var(--text-secondary)] font-bold">Ticket Inventory *</label>
+                            <input
+                              type="number"
+                              required={!enableTiers}
+                              min={10}
+                              value={newEventInventory}
+                              onChange={(e) => setNewEventInventory(e.target.value)}
+                              placeholder="e.g. 500"
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full font-mono"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl space-y-3 text-xs">
+                          <span className="text-[10px] text-sky-400 font-bold block font-mono">Ticket Tiers Configuration</span>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Early Bird ($)</label>
+                              <input
+                                type="number"
+                                required={enableTiers}
+                                value={ebPrice}
+                                onChange={(e) => setEbPrice(e.target.value)}
+                                className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                              />
                             </div>
-                          ))
-                        )}
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">GA ($)</label>
+                              <input
+                                type="number"
+                                required={enableTiers}
+                                value={gaPriceForm}
+                                onChange={(e) => setGaPriceForm(e.target.value)}
+                                className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">VIP ($)</label>
+                              <input
+                                type="number"
+                                required={enableTiers}
+                                value={vipPriceForm}
+                                onChange={(e) => setVipPriceForm(e.target.value)}
+                                className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Early Bird Inv</label>
+                              <input
+                                type="number"
+                                required={enableTiers}
+                                value={ebInv}
+                                onChange={(e) => setEbInv(e.target.value)}
+                                className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">GA Inv</label>
+                              <input
+                                type="number"
+                                required={enableTiers}
+                                value={gaInvForm}
+                                onChange={(e) => setGaInvForm(e.target.value)}
+                                className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">VIP Inv</label>
+                              <input
+                                type="number"
+                                required={enableTiers}
+                                value={vipInvForm}
+                                onChange={(e) => setVipInvForm(e.target.value)}
+                                className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold block">Allocate Venue Property</label>
+                          <select
+                            value={adminSelectedVenueId}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setAdminSelectedVenueId(val);
+                              if (val !== "none") {
+                                const vn = venues.find(v => v.id === val);
+                                if (vn) {
+                                  setNewEventLoc(`${vn.name}, ${vn.location}`);
+                                }
+                              }
+                            }}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
+                          >
+                            <option value="none">None (Use Manual Location)</option>
+                            {venues.map(v => (
+                              <option key={v.id} value={v.id}>
+                                {v.name} (Max Cap: {v.capacity} pax)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-[var(--text-secondary)] font-bold">Address/Location *</label>
+                          <input
+                            type="text"
+                            required
+                            value={newEventLoc}
+                            onChange={(e) => setNewEventLoc(e.target.value)}
+                            placeholder="Enter event venue address..."
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
+                          />
+                        </div>
                       </div>
-                    </div>
+
+                      {/* Geocoding parameters auto-fill */}
+                      <div className="p-3 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl space-y-2 text-xs">
+                        <span className="text-[10px] text-sky-400 font-bold block font-mono">Geographical details (Auto-filled on address change)</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">City</label>
+                            <input
+                              type="text"
+                              value={newEventCity}
+                              onChange={(e) => setNewEventCity(e.target.value)}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-[10px] text-[var(--text-primary)] w-full focus:outline-none"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">State</label>
+                            <input
+                              type="text"
+                              value={newEventState}
+                              onChange={(e) => setNewEventState(e.target.value)}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-[10px] text-[var(--text-primary)] w-full focus:outline-none"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Zipcode</label>
+                            <input
+                              type="text"
+                              value={newEventZipcode}
+                              onChange={(e) => setNewEventZipcode(e.target.value)}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-[10px] text-[var(--text-primary)] w-full focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dynamic Vendor Selection Grid */}
+                      <div className="space-y-2.5 pt-2 border-t border-[var(--glass-border)]">
+                        <div>
+                          <span className="text-xs font-bold text-[var(--text-primary)] block">Select Vendors for Event</span>
+                          <span className="text-[10px] text-[var(--text-secondary)]">
+                            {newEventDate
+                              ? `Showing vendor availability for event date: ${newEventDate}`
+                              : "Select an event date above to evaluate vendor availability."}
+                          </span>
+                        </div>
+
+                        <div className="glass rounded-xl border border-[var(--glass-border)] overflow-hidden">
+                          <div className="max-h-52 overflow-y-auto space-y-1.5 p-3 text-xs">
+                            {vendorProfiles.length === 0 ? (
+                              <p className="text-[11px] text-[var(--text-secondary)] italic text-center py-4">No registered vendors in catalog.</p>
+                            ) : (
+                              vendorProfiles.map(vendor => {
+                                const dateMatches = newEventDate && vendor.availableDates?.includes(newEventDate);
+
+                                const isBooked = booths.some(b =>
+                                  b.vendorBusinessName === vendor.businessName &&
+                                  b.status === "SOLD" &&
+                                  events.find(ev => ev.id === b.eventId)?.date === newEventDate &&
+                                  b.eventId !== orgEditingEventId
+                                );
+
+                                const isAvailable = dateMatches && !isBooked;
+                                const isChecked = orgSelectedVendorIds.includes(vendor.id);
+
+                                return (
+                                  <div
+                                    key={vendor.id}
+                                    className={`flex items-center justify-between p-2.5 rounded-lg border transition ${isAvailable
+                                      ? "border-[var(--glass-border)] bg-[var(--input-bg)] text-[var(--text-primary)]"
+                                      : "border-slate-800 bg-slate-900/10 text-slate-500 opacity-60"
+                                      }`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <input
+                                        type="checkbox"
+                                        disabled={!isAvailable}
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          if (isChecked) {
+                                            setOrgSelectedVendorIds(prev => prev.filter(id => id !== vendor.id));
+                                          } else {
+                                            setOrgSelectedVendorIds(prev => [...prev, vendor.id]);
+                                          }
+                                        }}
+                                        className="rounded border-slate-700 bg-transparent text-sky-500 focus:ring-0 focus:ring-offset-0 disabled:opacity-30 cursor-pointer"
+                                      />
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-bold">{vendor.businessName}</span>
+                                          <span className="text-[9px] bg-sky-500/10 border border-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded font-bold">
+                                            {vendor.category}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)] mt-0.5">
+                                          <span>Rating:</span>
+                                          {renderStars(getAverageRating("VENDOR", vendor.id))}
+                                          <span>•</span>
+                                          <span className="font-bold text-sky-400">${vendor.pricing}/event</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      {isAvailable ? (
+                                        <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
+                                          Available
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] bg-rose-500/10 border border-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
+                                          {isBooked ? "Booked" : "Unavailable"}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sponsored Badge */}
+                      <div className="bg-[var(--glass-bg)] rounded-xl p-3.5 border border-[var(--glass-border)] flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-[var(--text-primary)] block">Feature as Sponsored Event?</span>
+                          <span className="text-[10px] text-[var(--text-secondary)]">Sponsored events display with gold border highlight and badge.</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setNewEventIsSponsored(!newEventIsSponsored)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${newEventIsSponsored ? "bg-amber-500" : "bg-sky-500"
+                            }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${newEventIsSponsored ? "translate-x-6" : "translate-x-1"
+                              }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Sponsorship Packages Section */}
+                      <div className="glass rounded-xl p-4 border border-[var(--glass-border)] space-y-4">
+                        <div>
+                          <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">Event Sponsor Packages</h4>
+                          <p className="text-[10px] text-[var(--text-secondary)]">Configure sponsorship tiers with specific pricing and benefits to invite brand sponsorships.</p>
+                        </div>
+
+                        {/* Package Add Form */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end bg-white/5 p-3 rounded-lg border border-white/5">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] block uppercase">Tier/Package Name</label>
+                            <input
+                              type="text"
+                              value={newPackageName}
+                              onChange={(e) => setNewPackageName(e.target.value)}
+                              placeholder="e.g. Platinum Tier"
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] block uppercase">Price ($)</label>
+                            <input
+                              type="number"
+                              value={newPackagePrice}
+                              onChange={(e) => setNewPackagePrice(e.target.value)}
+                              placeholder="e.g. 5000"
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500 font-mono"
+                            />
+                          </div>
+                          <div className="space-y-1 md:col-span-3">
+                            <label className="text-[9px] font-bold text-[var(--text-secondary)] block uppercase">Benefits (comma-separated list)</label>
+                            <input
+                              type="text"
+                              value={newPackageBenefits}
+                              onChange={(e) => setNewPackageBenefits(e.target.value)}
+                              placeholder="e.g. Logo on website, 5 VIP Passes, Logo on Stage Banner"
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                          <div className="md:col-span-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={handleAddSponsorPackage}
+                              className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-1.5 px-4 rounded-lg text-[10px] transition font-outfit"
+                            >
+                              + Add Tier Package
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Current Packages List */}
+                        <div className="space-y-2">
+                          {orgEventSponsorPackages.length === 0 ? (
+                            <p className="text-[10px] text-[var(--text-secondary)] italic text-center py-2">No sponsorship tiers configured yet. Add at least one above to display sponsorship opportunities.</p>
+                          ) : (
+                            orgEventSponsorPackages.map(pkg => (
+                              <div key={pkg.id} className="flex justify-between items-center bg-[var(--input-bg)] p-2 rounded-lg border border-[var(--input-border)] text-xs">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-[var(--text-primary)]">{pkg.name}</span>
+                                    <span className="text-sky-400 font-mono font-bold">${pkg.price}</span>
+                                  </div>
+                                  <p className="text-[9px] text-[var(--text-secondary)] mt-0.5">Benefits: {pkg.benefits.join(", ")}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleRemoveSponsorPackage(pkg.id, e)}
+                                  className="text-rose-400 hover:text-rose-300 text-[10px] py-1 px-2 hover:bg-rose-500/10 rounded-lg transition"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
 
 
-                    <div className="flex gap-3 pt-2">
-                      {orgEditingEventId && (
+                      <div className="flex gap-3 pt-2">
+                        {orgEditingEventId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOrgEditingEventId(null);
+                              setNewEventTitle("");
+                              setNewEventDesc("");
+                              setNewEventLoc("");
+                              setNewEventDate("");
+                              setNewEventPrice("");
+                              setNewEventInventory("");
+                              setAdminSelectedVenueId("none");
+                              setNewEventCity("");
+                              setNewEventState("");
+                              setNewEventZipcode("");
+                              setNewEventLat("");
+                              setNewEventLng("");
+                              setNewEventIsSponsored(false);
+                              setOrgSelectedVendorIds([]);
+                            }}
+                            className="w-1/3 bg-[var(--glass-bg)] border border-[var(--glass-border)] text-xs font-semibold py-3 rounded-xl transition text-[var(--text-primary)] font-outfit"
+                          >
+                            Cancel Edit
+                          </button>
+                        )}
+                        <button
+                          type="submit"
+                          className={`bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-3 rounded-xl transition shadow flex items-center justify-center gap-2 text-xs font-outfit ${orgEditingEventId ? "w-2/3" : "w-full"
+                            }`}
+                        >
+                          <Calendar className="w-4 h-4" />
+                          {orgEditingEventId ? "Update Event Details" : "Publish Event Catalog Listing"}
+                        </button>
+                      </div>
+
+                    </form>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Organizer Session Badge & Organized Events Directory */}
+              <div className="space-y-6">
+                <h2 className="text-3xl font-bold font-display text-[var(--text-primary)] font-outfit">Organizer Console</h2>
+
+                {activeOrganizerProfile ? (
+                  <div className="space-y-6">
+                    {/* Active Profile Info */}
+                    <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-3 relative overflow-hidden">
+                      <div className="absolute -top-16 -right-16 w-36 h-36 bg-sky-500/10 rounded-full blur-2xl"></div>
+                      <div className="flex justify-between items-start relative z-10">
+                        <div>
+                          <span className="text-[9px] text-slate-500 font-mono uppercase tracking-widest block">Active Organization</span>
+                          <h4 className="text-base font-bold text-[var(--text-primary)] mt-0.5">{activeOrganizerProfile.organizationName}</h4>
+                        </div>
                         <button
                           type="button"
                           onClick={() => {
+                            setActiveOrganizerProfile(null);
                             setOrgEditingEventId(null);
-                            setNewEventTitle("");
-                            setNewEventDesc("");
-                            setNewEventLoc("");
-                            setNewEventDate("");
-                            setNewEventPrice("");
-                            setNewEventInventory("");
-                            setAdminSelectedVenueId("none");
-                            setNewEventCity("");
-                            setNewEventState("");
-                            setNewEventZipcode("");
-                            setNewEventLat("");
-                            setNewEventLng("");
-                            setNewEventIsSponsored(false);
-                            setOrgSelectedVendorIds([]);
                           }}
-                          className="w-1/3 bg-[var(--glass-bg)] border border-[var(--glass-border)] text-xs font-semibold py-3 rounded-xl transition text-[var(--text-primary)] font-outfit"
+                          className="text-[var(--text-secondary)] hover:text-rose-400 text-xs font-semibold"
                         >
-                          Cancel Edit
+                          Disconnect
                         </button>
-                      )}
-                      <button
-                        type="submit"
-                        className={`bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-3 rounded-xl transition shadow flex items-center justify-center gap-2 text-xs font-outfit ${
-                          orgEditingEventId ? "w-2/3" : "w-full"
-                        }`}
-                      >
-                        <Calendar className="w-4 h-4" />
-                        {orgEditingEventId ? "Update Event Details" : "Publish Event Catalog Listing"}
-                      </button>
+                      </div>
+
+                      <div className="p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl space-y-2 text-xs text-[var(--text-primary)] relative z-10 font-sans">
+                        <div className="flex justify-between">
+                          <span className="text-[var(--text-secondary)]">Representative:</span>
+                          <span className="font-semibold">{activeOrganizerProfile.contactName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[var(--text-secondary)]">Email:</span>
+                          <span className="font-semibold">{activeOrganizerProfile.email}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[var(--text-secondary)]">Phone:</span>
+                          <span className="font-semibold">{activeOrganizerProfile.phone}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[var(--text-secondary)]">Status:</span>
+                          <span className="text-emerald-400 font-bold uppercase">{activeOrganizerProfile.status}</span>
+                        </div>
+                      </div>
                     </div>
 
-                  </form>
-                </div>
-              )}
-            </div>
+                    {/* Metrics Grid */}
+                    {(() => {
+                      const orgEvents = events.filter(e => e.organizerId === activeOrganizerProfile.id);
+                      const orgEventIds = new Set(orgEvents.map(e => e.id));
+                      const totalListings = orgEvents.length;
 
-            {/* Right Column: Organizer Session Badge & Organized Events Directory */}
-            <div className="space-y-6">
-              <h2 className="text-3xl font-bold font-display text-[var(--text-primary)] font-outfit">Organizer Console</h2>
-              
-              {activeOrganizerProfile ? (
-                <div className="space-y-6">
-                  {/* Active Profile Info */}
-                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-3 relative overflow-hidden">
-                    <div className="absolute -top-16 -right-16 w-36 h-36 bg-sky-500/10 rounded-full blur-2xl"></div>
-                    <div className="flex justify-between items-start relative z-10">
-                      <div>
-                        <span className="text-[9px] text-slate-500 font-mono uppercase tracking-widest block">Active Organization</span>
-                        <h4 className="text-base font-bold text-[var(--text-primary)] mt-0.5">{activeOrganizerProfile.organizationName}</h4>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveOrganizerProfile(null);
-                          setOrgEditingEventId(null);
-                        }}
-                        className="text-[var(--text-secondary)] hover:text-rose-400 text-xs font-semibold"
-                      >
-                        Disconnect
-                      </button>
-                    </div>
+                      const ticketSales = orders
+                        .filter(o => o.type === "TICKET" && o.status === "PAID" && orgEventIds.has(o.eventId))
+                        .reduce((sum, o) => sum + o.totalAmount, 0);
 
-                    <div className="p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl space-y-2 text-xs text-[var(--text-primary)] relative z-10 font-sans">
-                      <div className="flex justify-between">
-                        <span className="text-[var(--text-secondary)]">Representative:</span>
-                        <span className="font-semibold">{activeOrganizerProfile.contactName}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-[var(--text-secondary)]">Email:</span>
-                        <span className="font-semibold">{activeOrganizerProfile.email}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-[var(--text-secondary)]">Phone:</span>
-                        <span className="font-semibold">{activeOrganizerProfile.phone}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-[var(--text-secondary)]">Status:</span>
-                        <span className="text-emerald-400 font-bold uppercase">{activeOrganizerProfile.status}</span>
-                      </div>
-                    </div>
-                  </div>
+                      const totalTicketsSold = orgEvents.reduce((sum, e) => sum + e.ticketsSold, 0);
 
-                  {/* Metrics Grid */}
-                  {(() => {
-                    const orgEvents = events.filter(e => e.organizerId === activeOrganizerProfile.id);
-                    const orgEventIds = new Set(orgEvents.map(e => e.id));
-                    const totalListings = orgEvents.length;
-                    
-                    const ticketSales = orders
-                      .filter(o => o.type === "TICKET" && o.status === "PAID" && orgEventIds.has(o.eventId))
-                      .reduce((sum, o) => sum + o.totalAmount, 0);
-                      
-                    const totalTicketsSold = orgEvents.reduce((sum, e) => sum + e.ticketsSold, 0);
-                    
-                    const boothSales = orders
-                      .filter(o => o.type === "BOOTH" && o.status === "PAID" && orgEventIds.has(o.eventId))
-                      .reduce((sum, o) => sum + (o.amountPaid || 0), 0);
-                      
-                    const sponsorSales = orders
-                      .filter(o => o.type === "SPONSOR" && o.status === "PAID" && orgEventIds.has(o.eventId))
-                      .reduce((sum, o) => sum + o.totalAmount, 0);
-                      
-                    const netRevenue = (1 - platformFeePercentage / 100) * ticketSales + boothSales + sponsorSales;
-                    
-                    const pendingBoothAppsCount = boothApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId)).length;
-                    const pendingSponsorAppsCount = sponsorApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId)).length;
-                    const pendingAppsCount = pendingBoothAppsCount + pendingSponsorAppsCount;
-                    
-                    return (
-                      <div className="grid grid-cols-2 gap-3 text-xs font-sans">
-                        <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
-                          <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Listings</span>
-                          <span className="text-base font-bold text-sky-400 font-mono mt-0.5 block">{totalListings} events</span>
-                        </div>
-                        <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
-                          <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Tickets Sold</span>
-                          <span className="text-base font-bold text-indigo-400 font-mono mt-0.5 block">{totalTicketsSold} sold</span>
-                        </div>
-                        <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
-                          <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Net Revenue</span>
-                          <span className="text-base font-bold text-emerald-400 font-mono mt-0.5 block">${Math.round(netRevenue)}</span>
-                        </div>
-                        <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
-                          <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Pending Apps</span>
-                          <span className="text-base font-bold text-amber-400 font-mono mt-0.5 block">{pendingAppsCount} active</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                      const boothSales = orders
+                        .filter(o => o.type === "BOOTH" && o.status === "PAID" && orgEventIds.has(o.eventId))
+                        .reduce((sum, o) => sum + (o.amountPaid || 0), 0);
 
-                  {/* Applications Manager */}
-                  {(() => {
-                    const orgEvents = events.filter(e => e.organizerId === activeOrganizerProfile.id);
-                    const orgEventIds = new Set(orgEvents.map(e => e.id));
-                    const pendingBoothApps = boothApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId));
-                    const pendingSponsorApps = sponsorApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId));
-                    
-                    if (pendingBoothApps.length === 0 && pendingSponsorApps.length === 0) return null;
-                    
-                    return (
-                      <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4 font-sans text-xs">
-                        <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">
-                          📥 Applications Manager
-                        </h4>
-                        
-                        {/* Pending Booths */}
-                        {pendingBoothApps.length > 0 && (
-                          <div className="space-y-2">
-                            <span className="text-[9px] text-[var(--text-secondary)] uppercase font-mono font-bold block border-b border-[var(--glass-border)] pb-1">Vendor Booth Requests</span>
-                            {pendingBoothApps.map(app => (
-                              <div key={app.id} className="p-2.5 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] space-y-2">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <span className="font-bold text-[var(--text-primary)]">{app.vendorName}</span>
-                                    <span className="text-[10px] text-slate-400 block mt-0.5">Event: {app.eventTitle} | Slot: {app.boothName}</span>
+                      const sponsorSales = orders
+                        .filter(o => o.type === "SPONSOR" && o.status === "PAID" && orgEventIds.has(o.eventId))
+                        .reduce((sum, o) => sum + o.totalAmount, 0);
+
+                      const netRevenue = (1 - platformFeePercentage / 100) * ticketSales + boothSales + sponsorSales;
+
+                      const pendingBoothAppsCount = boothApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId)).length;
+                      const pendingSponsorAppsCount = sponsorApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId)).length;
+                      const pendingAppsCount = pendingBoothAppsCount + pendingSponsorAppsCount;
+
+                      return (
+                        <div className="grid grid-cols-2 gap-3 text-xs font-sans">
+                          <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
+                            <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Listings</span>
+                            <span className="text-base font-bold text-sky-400 font-mono mt-0.5 block">{totalListings} events</span>
+                          </div>
+                          <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
+                            <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Tickets Sold</span>
+                            <span className="text-base font-bold text-indigo-400 font-mono mt-0.5 block">{totalTicketsSold} sold</span>
+                          </div>
+                          <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
+                            <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Net Revenue</span>
+                            <span className="text-base font-bold text-emerald-400 font-mono mt-0.5 block">${Math.round(netRevenue)}</span>
+                          </div>
+                          <div className="glass p-3 rounded-xl border border-[var(--glass-border)]">
+                            <span className="text-[9px] text-[var(--text-secondary)] font-mono uppercase tracking-wider block">Pending Apps</span>
+                            <span className="text-base font-bold text-amber-400 font-mono mt-0.5 block">{pendingAppsCount} active</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Applications Manager */}
+                    {(() => {
+                      const orgEvents = events.filter(e => e.organizerId === activeOrganizerProfile.id);
+                      const orgEventIds = new Set(orgEvents.map(e => e.id));
+                      const pendingBoothApps = boothApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId));
+                      const pendingSponsorApps = sponsorApplications.filter(app => app.status === "PENDING" && orgEventIds.has(app.eventId));
+
+                      if (pendingBoothApps.length === 0 && pendingSponsorApps.length === 0) return null;
+
+                      return (
+                        <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-4 font-sans text-xs">
+                          <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">
+                            📥 Applications Manager
+                          </h4>
+
+                          {/* Pending Booths */}
+                          {pendingBoothApps.length > 0 && (
+                            <div className="space-y-2">
+                              <span className="text-[9px] text-[var(--text-secondary)] uppercase font-mono font-bold block border-b border-[var(--glass-border)] pb-1">Vendor Booth Requests</span>
+                              {pendingBoothApps.map(app => (
+                                <div key={app.id} className="p-2.5 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] space-y-2">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <span className="font-bold text-[var(--text-primary)]">{app.vendorName}</span>
+                                      <span className="text-[10px] text-slate-400 block mt-0.5">Event: {app.eventTitle} | Slot: {app.boothName}</span>
+                                    </div>
+                                    <span className="font-mono text-amber-400 font-bold">${app.price}</span>
                                   </div>
-                                  <span className="font-mono text-amber-400 font-bold">${app.price}</span>
+                                  <div className="flex justify-between items-center text-[10px]">
+                                    <span className="text-[var(--text-secondary)]">{app.paymentTerms} payment (Paid: ${app.amountPaid})</span>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => handleRejectBoothApplication(app)}
+                                        className="px-2 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded font-semibold text-[9px]"
+                                      >
+                                        Reject
+                                      </button>
+                                      <button
+                                        onClick={() => handleApproveBoothApplication(app)}
+                                        className="px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded font-semibold text-[9px]"
+                                      >
+                                        Approve
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex justify-between items-center text-[10px]">
-                                  <span className="text-[var(--text-secondary)]">{app.paymentTerms} payment (Paid: ${app.amountPaid})</span>
-                                  <div className="flex gap-2">
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Pending Sponsorships */}
+                          {pendingSponsorApps.length > 0 && (
+                            <div className="space-y-2 pt-2 border-t border-[var(--glass-border)]">
+                              <span className="text-[9px] text-[var(--text-secondary)] uppercase font-mono font-bold block border-b border-[var(--glass-border)] pb-1">Brand Sponsor Requests</span>
+                              {pendingSponsorApps.map(app => (
+                                <div key={app.id} className="p-2.5 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] space-y-2">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <span className="font-bold text-[var(--text-primary)]">{app.companyName}</span>
+                                      <span className="text-[10px] text-slate-400 block mt-0.5">Event: {app.eventTitle} | Package: {app.packageName}</span>
+                                    </div>
+                                    <span className="font-mono text-amber-400 font-bold">${app.packagePrice}</span>
+                                  </div>
+                                  <div className="flex justify-end gap-2 text-[10px]">
                                     <button
-                                      onClick={() => handleRejectBoothApplication(app)}
+                                      onClick={() => handleRejectSponsorApplication(app)}
                                       className="px-2 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded font-semibold text-[9px]"
                                     >
                                       Reject
                                     </button>
                                     <button
-                                      onClick={() => handleApproveBoothApplication(app)}
+                                      onClick={() => handleApproveSponsorApplication(app)}
                                       className="px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded font-semibold text-[9px]"
                                     >
                                       Approve
                                     </button>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Pending Sponsorships */}
-                        {pendingSponsorApps.length > 0 && (
-                          <div className="space-y-2 pt-2 border-t border-[var(--glass-border)]">
-                            <span className="text-[9px] text-[var(--text-secondary)] uppercase font-mono font-bold block border-b border-[var(--glass-border)] pb-1">Brand Sponsor Requests</span>
-                            {pendingSponsorApps.map(app => (
-                              <div key={app.id} className="p-2.5 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] space-y-2">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <span className="font-bold text-[var(--text-primary)]">{app.companyName}</span>
-                                    <span className="text-[10px] text-slate-400 block mt-0.5">Event: {app.eventTitle} | Package: {app.packageName}</span>
-                                  </div>
-                                  <span className="font-mono text-amber-400 font-bold">${app.packagePrice}</span>
-                                </div>
-                                <div className="flex justify-end gap-2 text-[10px]">
-                                  <button
-                                    onClick={() => handleRejectSponsorApplication(app)}
-                                    className="px-2 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded font-semibold text-[9px]"
-                                  >
-                                    Reject
-                                  </button>
-                                  <button
-                                    onClick={() => handleApproveSponsorApplication(app)}
-                                    className="px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded font-semibold text-[9px]"
-                                  >
-                                    Approve
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Sponsor Deliverables tracker */}
-                  {(() => {
-                    const orgEvents = events.filter(e => e.organizerId === activeOrganizerProfile.id);
-                    const orgEventIds = new Set(orgEvents.map(e => e.id));
-                    const activeSponsorApps = sponsorApplications.filter(app => app.status === "APPROVED" && orgEventIds.has(app.eventId));
-                    
-                    if (activeSponsorApps.length === 0) return null;
-                    
-                    return (
-                      <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-3 font-sans text-xs">
-                        <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">
-                          Compliance Deliverables Checklist
-                        </h4>
-                        <div className="space-y-3">
-                          {activeSponsorApps.map(app => (
-                            <div key={app.id} className="p-3 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl space-y-2">
-                              <div>
-                                <span className="font-bold text-[var(--text-primary)] block">{app.companyName}</span>
-                                <span className="text-[9px] text-sky-400 block font-mono mt-0.5">Event: {app.eventTitle} | {app.packageName}</span>
-                              </div>
-                              <div className="space-y-1.5 pl-1.5">
-                                {app.deliverables.map((del, dIdx) => (
-                                  <label key={dIdx} className="flex items-center gap-2 text-xs text-[var(--text-secondary)] cursor-pointer select-none">
-                                    <input
-                                      type="checkbox"
-                                      checked={del.completed}
-                                      onChange={() => {
-                                        setSponsorApplications(prev => prev.map(a => {
-                                          if (a.id === app.id) {
-                                            const updatedDel = a.deliverables.map((d, idx) => idx === dIdx ? { ...d, completed: !d.completed } : d);
-                                            return { ...a, deliverables: updatedDel };
-                                          }
-                                          return a;
-                                        }));
-                                        addSagaLog("Organizer-Service", `Organizer toggled deliverable: ${del.name} for sponsor: ${app.companyName}`, "info");
-                                      }}
-                                      className="rounded border-slate-700 bg-transparent text-emerald-500 focus:ring-0 cursor-pointer"
-                                    />
-                                    <span className={del.completed ? "line-through text-slate-500" : ""}>{del.name}</span>
-                                  </label>
-                                ))}
-                              </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
                         </div>
-                      </div>
-                    );
-                  })()}
+                      );
+                    })()}
 
-                  {/* My Organized Events Directory block removed from here */}
-                </div>
-              ) : (
-                <div className="glass rounded-2xl border border-[var(--glass-border)] p-12 text-center text-[var(--text-secondary)]">
-                  <p>Please register and verify an Event Organizer account on the left to load console metrics.</p>
-                </div>
-              )}
+                    {/* Sponsor Deliverables tracker */}
+                    {(() => {
+                      const orgEvents = events.filter(e => e.organizerId === activeOrganizerProfile.id);
+                      const orgEventIds = new Set(orgEvents.map(e => e.id));
+                      const activeSponsorApps = sponsorApplications.filter(app => app.status === "APPROVED" && orgEventIds.has(app.eventId));
+
+                      if (activeSponsorApps.length === 0) return null;
+
+                      return (
+                        <div className="glass rounded-2xl border border-[var(--glass-border)] p-5 space-y-3 font-sans text-xs">
+                          <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider font-mono">
+                            Compliance Deliverables Checklist
+                          </h4>
+                          <div className="space-y-3">
+                            {activeSponsorApps.map(app => (
+                              <div key={app.id} className="p-3 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl space-y-2">
+                                <div>
+                                  <span className="font-bold text-[var(--text-primary)] block">{app.companyName}</span>
+                                  <span className="text-[9px] text-sky-400 block font-mono mt-0.5">Event: {app.eventTitle} | {app.packageName}</span>
+                                </div>
+                                <div className="space-y-1.5 pl-1.5">
+                                  {app.deliverables.map((del, dIdx) => (
+                                    <label key={dIdx} className="flex items-center gap-2 text-xs text-[var(--text-secondary)] cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={del.completed}
+                                        onChange={() => {
+                                          setSponsorApplications(prev => prev.map(a => {
+                                            if (a.id === app.id) {
+                                              const updatedDel = a.deliverables.map((d, idx) => idx === dIdx ? { ...d, completed: !d.completed } : d);
+                                              return { ...a, deliverables: updatedDel };
+                                            }
+                                            return a;
+                                          }));
+                                          addSagaLog("Organizer-Service", `Organizer toggled deliverable: ${del.name} for sponsor: ${app.companyName}`, "info");
+                                        }}
+                                        className="rounded border-slate-700 bg-transparent text-emerald-500 focus:ring-0 cursor-pointer"
+                                      />
+                                      <span className={del.completed ? "line-through text-slate-500" : ""}>{del.name}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* My Organized Events Directory block removed from here */}
+                  </div>
+                ) : (
+                  <div className="glass rounded-2xl border border-[var(--glass-border)] p-12 text-center text-[var(--text-secondary)]">
+                    <p>Please register and verify an Event Organizer account on the left to load console metrics.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
         {/* TAB 7: VENDOR PORTAL */}
         {activeTab === "vendor" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-[fadeIn_0.3s_ease-out]">
-            
+
             {/* Left Column: Vendor Profile / Registration */}
             <div className="lg:col-span-1 space-y-6">
               {!activeVendorProfile ? (
@@ -7165,7 +7433,7 @@ export default function Home() {
                       During-Event Dashboard (Live coordination)
                     </h3>
                     <p className="text-xs text-[var(--text-secondary)]">Manage your live operations, collect attendee leads, and log booth sales transactions.</p>
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       {/* Check-In Status */}
                       <div className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-4 rounded-xl text-center space-y-2">
@@ -7260,7 +7528,7 @@ export default function Home() {
                             onClick={() => {
                               const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(vendorLeads.filter(l => l.vendorId === activeVendorProfile.id)));
                               const downloadAnchor = document.createElement('a');
-                              downloadAnchor.setAttribute("href",     dataStr);
+                              downloadAnchor.setAttribute("href", dataStr);
                               downloadAnchor.setAttribute("download", `Leads_${activeVendorProfile.businessName}.json`);
                               document.body.appendChild(downloadAnchor);
                               downloadAnchor.click();
@@ -7350,7 +7618,7 @@ export default function Home() {
                                   const terms = confirm(`Rent "${bh.name}" ($${bh.price})?\nClick OK for FULL payment, Cancel for DEPOSIT (25%).`);
                                   const selectTerms = terms ? "FULL" : "DEPOSIT";
                                   const amountPaid = selectTerms === "FULL" ? bh.price : Math.round(bh.price * 0.25);
-                                  
+
                                   const newApp: BoothApplication = {
                                     id: `app-${Date.now()}`,
                                     eventId: ev.id,
@@ -7367,7 +7635,7 @@ export default function Home() {
                                     documents: ["Licence_Permit.pdf", "Liability_Insurance.pdf"],
                                     timestamp: new Date().toLocaleDateString()
                                   };
-                                  
+
                                   setBoothApplications(prev => [...prev, newApp]);
                                   addSagaLog("Order-Service", `Vendor initiated booth lease checkout for Slot: ${bh.name}. PENDING approval.`, "info");
                                   addNotification("Booth Application Submitted", `Your booth application for ${ev.title} was submitted. Payment terms: ${selectTerms}.`, "VENDOR");
@@ -7388,7 +7656,7 @@ export default function Home() {
                   <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
                     <h4 className="text-base font-bold text-[var(--text-primary)] font-outfit">Submit Feedback to Event Organizer</h4>
                     <p className="text-xs text-[var(--text-secondary)]">Rate the organizer's event coordination and infrastructure services.</p>
-                    
+
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -7438,13 +7706,13 @@ export default function Home() {
         {/* TAB 8: SPONSOR PORTAL */}
         {activeTab === "sponsor" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-[fadeIn_0.3s_ease-out]">
-            
+
             {/* Left Column: Sponsor Profile */}
             <div className="lg:col-span-1 space-y-6">
               {(() => {
                 const activeSponsor = users.find(u => u.role === "SPONSOR");
                 const isSuspended = activeSponsor?.status === "SUSPENDED";
-                
+
                 return (
                   <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 relative overflow-hidden">
                     <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl"></div>
@@ -7485,7 +7753,7 @@ export default function Home() {
 
             {/* Middle & Right Column: Interactive Sponsor Dashboard */}
             <div className="lg:col-span-2 space-y-6">
-              
+
               {/* Sponsor Brand Analytics */}
               <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 relative overflow-hidden">
                 <div className="absolute -top-24 -right-24 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
@@ -7544,7 +7812,7 @@ export default function Home() {
                           {ev.sponsorPackages?.map(pkg => {
                             const isPurchased = sponsorApplications.some(sa => sa.eventId === ev.id && sa.packageId === pkg.id && sa.status === "APPROVED");
                             const isPending = sponsorApplications.some(sa => sa.eventId === ev.id && sa.packageId === pkg.id && sa.status === "PENDING");
-                            
+
                             return (
                               <div key={pkg.id} className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-3 rounded-lg flex flex-col justify-between gap-3 font-sans">
                                 <div>
@@ -7667,7 +7935,7 @@ export default function Home() {
         {/* TAB 5: VENUE PROVIDERS MANAGEMENT */}
         {activeTab === "venues" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            
+
             {/* Left Column: Vendor Session Badge & Venue Creator Form */}
             <div className="lg:col-span-1 space-y-6">
               {!activeVenueProvider ? (
@@ -7733,13 +8001,33 @@ export default function Home() {
                         </div>
                       </div>
 
-                      <button
-                        type="submit"
-                        className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 mt-2"
-                      >
-                        <Smartphone className="w-4 h-4" />
-                        Send Verification OTP
-                      </button>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          type="submit"
+                          className="flex-[2] bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5"
+                        >
+                          <Smartphone className="w-4 h-4" />
+                          Send Verification OTP
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveVenueProvider({
+                              id: "vp-1",
+                              companyName: "SF Bay Area Venues",
+                              contactName: "Sarah Connor",
+                              email: "sarah@sfvenues.com",
+                              phone: "+1 555-9011",
+                              status: "VERIFIED"
+                            });
+                            addSagaLog("Auth-Service", `Mock login: Switched role to [ORGANIZER] and loaded Venue Provider via Quick Mock Login.`, "info");
+                          }}
+                          className="flex-[1] bg-[var(--glass-bg)] border border-[var(--glass-border)] hover:border-[var(--text-secondary)] text-[10px] px-2 rounded-xl text-[var(--text-secondary)] font-semibold transition"
+                          title="Quickly bypass verification using mock credentials"
+                        >
+                          Quick Bypass
+                        </button>
+                      </div>
                     </form>
                   ) : (
                     <form onSubmit={handleVerifyVenueProviderOtp} className="space-y-4 pt-2">
@@ -7806,22 +8094,66 @@ export default function Home() {
 
                   {/* List Venue Form Card */}
                   <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
-                    <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-1.5 font-outfit">
-                      <Plus className="w-4 h-4 text-indigo-400" />
-                      List New Venue
-                    </h3>
-                    
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-1.5 font-outfit">
+                        {editingVenueId ? <Edit2 className="w-4 h-4 text-indigo-400" /> : <Plus className="w-4 h-4 text-indigo-400" />}
+                        {editingVenueId ? "Edit Venue" : "List New Venue"}
+                      </h3>
+                      {editingVenueId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingVenueId(null);
+                            setNewVenueName("");
+                            setNewVenueType("Convention Center");
+                            setNewVenueDesc("");
+                            setNewVenueLoc("");
+                            setNewVenueCapacity("");
+                            setNewVenueParking("");
+                            setNewVenueServices([]);
+                            setNewVenueDates([]);
+                            setNewVenueImageUrl("");
+                            setNewVenueCity("");
+                            setNewVenueState("");
+                            setNewVenueZipcode("");
+                            setNewVenueLat("");
+                            setNewVenueLng("");
+                          }}
+                          className="text-xs text-rose-400 hover:text-rose-300 font-semibold"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+
                     <form onSubmit={handleCreateVenue} className="space-y-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Venue Name *</label>
-                        <input
-                          type="text"
-                          required
-                          value={newVenueName}
-                          onChange={(e) => setNewVenueName(e.target.value)}
-                          placeholder="e.g. Pacific Center Pavilion"
-                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Venue Name *</label>
+                          <input
+                            type="text"
+                            required
+                            value={newVenueName}
+                            onChange={(e) => setNewVenueName(e.target.value)}
+                            placeholder="e.g. Pacific Center Pavilion"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-secondary)] block uppercase">Venue Type *</label>
+                          <select
+                            value={newVenueType}
+                            onChange={(e) => setNewVenueType(e.target.value as any)}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-sky-500 font-sans cursor-pointer"
+                          >
+                            <option value="Convention Center" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Convention Center</option>
+                            <option value="Hotel" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Hotel</option>
+                            <option value="Banquet Hall" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Banquet Hall</option>
+                            <option value="Stadium" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Stadium</option>
+                            <option value="Conference Room" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Conference Room</option>
+                            <option value="Outdoor Venue" className="bg-[var(--node-bg)] text-[var(--text-primary)]">Outdoor Venue</option>
+                          </select>
+                        </div>
                       </div>
 
                       <div className="space-y-1">
@@ -8008,9 +8340,9 @@ export default function Home() {
 
                       <button
                         type="submit"
-                        className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-2.5 rounded-xl text-xs transition"
+                        className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-2.5 rounded-xl text-xs transition animate-pulse-hover"
                       >
-                        List Venue Property
+                        {editingVenueId ? "Save Venue Changes" : "List Venue Property"}
                       </button>
                     </form>
                   </div>
@@ -8028,7 +8360,7 @@ export default function Home() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                    
+
                     {/* Venues Owned */}
                     <div className="space-y-4">
                       <h4 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider flex items-center gap-1.5">
@@ -8042,66 +8374,122 @@ export default function Home() {
                             No listed venue properties found. List a property in the form to get bookings.
                           </div>
                         ) : (
-                          venues.filter(v => v.providerId === activeVenueProvider.id).map(vn => (
-                            <div key={vn.id} className="glass rounded-xl border border-[var(--glass-border)] overflow-hidden">
-                              <div className="relative h-24 bg-[var(--input-bg)]">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={vn.imageUrl} alt={vn.name} className="w-full h-full object-cover opacity-75" />
-                                <span className="absolute bottom-2 right-2 bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded font-mono font-bold">
-                                  CAP: {vn.capacity} pax
-                                </span>
-                              </div>
-                              <div className="p-3 space-y-1.5 text-xs">
-                                <h5 className="font-bold text-sm text-[var(--text-primary)]">{vn.name}</h5>
-                                <div className="flex items-center my-0.5">
-                                  {(() => {
-                                    const rating = getAverageRating("VENUE", vn.id);
-                                    const count = getReviewCount("VENUE", vn.id);
-                                    return rating > 0 ? (
-                                      <div className="flex items-center gap-1">
-                                        {renderStars(rating)}
-                                        <span className="text-[10px] text-[var(--text-secondary)]">({count})</span>
-                                      </div>
-                                    ) : (
-                                      <span className="text-[9px] text-[var(--text-secondary)]/75 italic">No reviews yet</span>
-                                    );
-                                  })()}
+                          venues.filter(v => v.providerId === activeVenueProvider.id).map(vn => {
+                            const isSelected = selectedCalVenueId === vn.id;
+                            return (
+                              <div
+                                key={vn.id}
+                                onClick={() => setSelectedCalVenueId(isSelected ? "ALL" : vn.id)}
+                                className={`glass rounded-xl border overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] ${isSelected
+                                  ? "border-indigo-500 ring-2 ring-indigo-500/35 bg-indigo-950/5"
+                                  : "border-[var(--glass-border)] hover:border-indigo-500/30"
+                                  }`}
+                              >
+                                <div className="relative h-24 bg-[var(--input-bg)]">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={vn.imageUrl} alt={vn.name} className="w-full h-full object-cover opacity-75" />
+                                  <span className="absolute bottom-2 right-2 bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded font-mono font-bold">
+                                    CAP: {vn.capacity} pax
+                                  </span>
                                 </div>
-                                <p className="text-[var(--text-secondary)] text-[11px] line-clamp-2">{vn.description}</p>
-                                <p className="text-[var(--text-secondary)] text-[10px] italic flex items-center gap-1">
-                                  <MapPin className="w-3 h-3 text-indigo-400" /> {vn.location}
-                                </p>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {vn.services.map(s => (
-                                    <span key={s} className="bg-[var(--glass-border)] text-[var(--text-primary)] text-[9px] px-1.5 py-0.5 rounded font-semibold">
-                                      {s}
+                                <div className="p-3 space-y-1.5 text-xs">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <h5 className="font-bold text-sm text-[var(--text-primary)]">{vn.name}</h5>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // prevent calendar toggle click
+                                        setEditingVenueId(vn.id);
+                                        setNewVenueName(vn.name);
+                                        setNewVenueType(vn.type);
+                                        setNewVenueDesc(vn.description || "");
+                                        setNewVenueLoc(vn.location);
+                                        setNewVenueCapacity(vn.capacity.toString());
+                                        setNewVenueParking(vn.parkingSpots.toString());
+                                        setNewVenueServices(vn.services);
+                                        setNewVenueDates(vn.availableDates);
+                                        setNewVenueImageUrl(vn.imageUrl || "");
+                                        setNewVenueCity(vn.city || "");
+                                        setNewVenueState(vn.state || "");
+                                        setNewVenueZipcode(vn.zipcode || "");
+                                        setNewVenueLat(vn.latitude ? vn.latitude.toString() : "");
+                                        setNewVenueLng(vn.longitude ? vn.longitude.toString() : "");
+
+                                        // Scroll form into view
+                                        window.scrollTo({ top: 0, behavior: "smooth" });
+                                      }}
+                                      className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 text-[10px] py-0.5 px-2 rounded font-semibold transition"
+                                    >
+                                      Edit
+                                    </button>
+                                  </div>
+                                  <div className="flex items-center gap-2 my-0.5">
+                                    <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-bold uppercase tracking-wider font-mono">
+                                      {vn.type}
                                     </span>
-                                  ))}
-                                </div>
-                                <div className="pt-2 border-t border-[var(--glass-border)]">
-                                  <span className="text-[9px] uppercase tracking-wider text-[var(--text-secondary)] block">Available Dates:</span>
-                                  <p className="font-mono text-[9px] text-indigo-400 font-semibold">{vn.availableDates.join(", ")}</p>
+                                    {(() => {
+                                      const rating = getAverageRating("VENUE", vn.id);
+                                      const count = getReviewCount("VENUE", vn.id);
+                                      return rating > 0 ? (
+                                        <div className="flex items-center gap-1">
+                                          {renderStars(rating)}
+                                          <span className="text-[10px] text-[var(--text-secondary)]">({count})</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-[9px] text-[var(--text-secondary)]/75 italic">No reviews yet</span>
+                                      );
+                                    })()}
+                                  </div>
+                                  <p className="text-[var(--text-secondary)] text-[11px] line-clamp-2">{vn.description}</p>
+                                  <p className="text-[var(--text-secondary)] text-[10px] italic flex items-center gap-1">
+                                    <MapPin className="w-3 h-3 text-indigo-400" /> {vn.location}
+                                  </p>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {vn.services.map(s => (
+                                      <span key={s} className="bg-[var(--glass-border)] text-[var(--text-primary)] text-[9px] px-1.5 py-0.5 rounded font-semibold">
+                                        {s}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <div className="pt-2 border-t border-[var(--glass-border)]">
+                                    <span className="text-[9px] uppercase tracking-wider text-[var(--text-secondary)] block">Available Dates:</span>
+                                    <p className="font-mono text-[9px] text-indigo-400 font-semibold">{vn.availableDates.join(", ")}</p>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                       </div>
                     </div>
 
                     {/* Booking Calendar View */}
                     <div className="space-y-4">
-                      <h4 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider flex items-center gap-1.5">
-                        <Calendar className="w-4 h-4 text-indigo-400" />
-                        Availability Calendar
-                      </h4>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <h4 className="text-sm font-bold uppercase text-[var(--text-secondary)] font-mono tracking-wider flex items-center gap-1.5">
+                          <Calendar className="w-4 h-4 text-indigo-400" />
+                          Availability Calendar
+                        </h4>
+
+                        {/* Venue Select Filter */}
+                        <select
+                          value={selectedCalVenueId}
+                          onChange={(e) => setSelectedCalVenueId(e.target.value)}
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] text-[10px] font-bold rounded-lg py-1 px-2 text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 cursor-pointer font-sans"
+                        >
+                          <option value="ALL">All Properties</option>
+                          {venues.filter(v => v.providerId === activeVenueProvider.id).map(v => (
+                            <option key={v.id} value={v.id}>{v.name}</option>
+                          ))}
+                        </select>
+                      </div>
 
                       {/* Interactive Calendar grid */}
                       <div className="glass rounded-2xl border border-[var(--glass-border)] p-4 space-y-4">
-                        
+
                         {/* Calendar Month Header */}
                         <div className="flex justify-between items-center text-sm font-bold text-[var(--text-primary)]">
-                          <button 
+                          <button
                             type="button"
                             onClick={() => setCurrentCalMonth(prev => prev === 5 ? 7 : prev - 1)}
                             className="p-1 hover:bg-[var(--glass-border)] rounded transition-colors text-xs"
@@ -8109,7 +8497,7 @@ export default function Home() {
                             &larr;
                           </button>
                           <span>{currentCalMonth === 5 ? "June 2026" : currentCalMonth === 6 ? "July 2026" : "August 2026"}</span>
-                          <button 
+                          <button
                             type="button"
                             onClick={() => setCurrentCalMonth(prev => prev === 7 ? 5 : prev + 1)}
                             className="p-1 hover:bg-[var(--glass-border)] rounded transition-colors text-xs"
@@ -8138,10 +8526,12 @@ export default function Home() {
                             const dateYmd = `2026-${monthStr}-${dayStr}`;
 
                             const providerVenues = venues.filter(v => v.providerId === activeVenueProvider.id);
-                            const dayBooking = venueBookings.find(b => 
-                              b.date === dateYmd && 
-                              b.status === "CONFIRMED" && 
-                              providerVenues.some(v => v.id === b.venueId)
+                            const dayBooking = venueBookings.find(b =>
+                              b.date === dateYmd &&
+                              b.status === "CONFIRMED" &&
+                              (selectedCalVenueId === "ALL"
+                                ? providerVenues.some(v => v.id === b.venueId)
+                                : b.venueId === selectedCalVenueId)
                             );
 
                             const isSelected = selectedCalendarDay === dateYmd;
@@ -8151,11 +8541,10 @@ export default function Home() {
                                 key={`day-${day}`}
                                 type="button"
                                 onClick={() => setSelectedCalendarDay(dateYmd)}
-                                className={`py-2 rounded-lg font-mono font-bold flex flex-col items-center justify-center relative transition-colors ${
-                                  dayBooking
-                                    ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/35 hover:bg-indigo-500/20"
-                                    : "hover:bg-[var(--glass-border)] text-[var(--text-primary)]"
-                                } ${isSelected ? "ring-2 ring-indigo-500 scale-105" : ""}`}
+                                className={`py-2 rounded-lg font-mono font-bold flex flex-col items-center justify-center relative transition-colors ${dayBooking
+                                  ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/35 hover:bg-indigo-500/20"
+                                  : "hover:bg-[var(--glass-border)] text-[var(--text-primary)]"
+                                  } ${isSelected ? "ring-2 ring-indigo-500 scale-105" : ""}`}
                               >
                                 <span>{day}</span>
                                 {dayBooking && (
@@ -8170,10 +8559,12 @@ export default function Home() {
                         <div className="pt-3 border-t border-[var(--glass-border)] text-xs font-sans">
                           {selectedCalendarDay ? (() => {
                             const providerVenues = venues.filter(v => v.providerId === activeVenueProvider.id);
-                            const activeBooking = venueBookings.find(b => 
-                              b.date === selectedCalendarDay && 
-                              b.status === "CONFIRMED" && 
-                              providerVenues.some(v => v.id === b.venueId)
+                            const activeBooking = venueBookings.find(b =>
+                              b.date === selectedCalendarDay &&
+                              b.status === "CONFIRMED" &&
+                              (selectedCalVenueId === "ALL"
+                                ? providerVenues.some(v => v.id === b.venueId)
+                                : b.venueId === selectedCalVenueId)
                             );
 
                             if (activeBooking) {
@@ -8231,7 +8622,7 @@ export default function Home() {
       {checkoutStep === "mfa" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4">
           <div className="glass rounded-2xl border border-[var(--glass-border)] max-w-sm w-full p-6 space-y-6 relative overflow-hidden">
-            <div className="absolute -top-16 -right-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl"></div>
+            <div className="absolute -top-16 -right-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
             <div className="text-center space-y-2">
               <div className="mx-auto w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
@@ -8292,15 +8683,15 @@ export default function Home() {
       {show2FaModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4">
           <div className="glass rounded-2xl border border-[var(--glass-border)] max-w-md w-full p-6 space-y-6 relative overflow-hidden">
-            <div className="absolute -top-16 -right-16 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl"></div>
+            <div className="absolute -top-16 -right-16 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-xl font-bold text-[var(--text-primary)]">Setup Authenticator</h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-1">Configure your authentication app for secure transaction checks.</p>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => {
                   setShow2FaModal(false);
                   setOtpCode("");
@@ -8316,15 +8707,15 @@ export default function Home() {
               {/* Fake QR code */}
               <div className="bg-white p-2.5 rounded-xl shrink-0">
                 <svg className="w-24 h-24 text-slate-950" viewBox="0 0 100 100">
-                  <rect width="100" height="100" fill="white"/>
-                  <rect x="5" y="5" width="20" height="20" fill="black"/>
-                  <rect x="75" y="5" width="20" height="20" fill="black"/>
-                  <rect x="5" y="75" width="20" height="20" fill="black"/>
-                  <rect x="30" y="30" width="40" height="40" fill="black"/>
-                  <rect x="15" y="45" width="10" height="10" fill="black"/>
-                  <rect x="75" y="75" width="20" height="20" fill="black"/>
-                  <rect x="45" y="75" width="20" height="10" fill="black"/>
-                  <rect x="75" y="45" width="10" height="20" fill="black"/>
+                  <rect width="100" height="100" fill="white" />
+                  <rect x="5" y="5" width="20" height="20" fill="black" />
+                  <rect x="75" y="5" width="20" height="20" fill="black" />
+                  <rect x="5" y="75" width="20" height="20" fill="black" />
+                  <rect x="30" y="30" width="40" height="40" fill="black" />
+                  <rect x="15" y="45" width="10" height="10" fill="black" />
+                  <rect x="75" y="75" width="20" height="20" fill="black" />
+                  <rect x="45" y="75" width="20" height="10" fill="black" />
+                  <rect x="75" y="45" width="10" height="20" fill="black" />
                 </svg>
               </div>
 
@@ -8373,7 +8764,7 @@ export default function Home() {
       {showSponsorModal && sponsorSelectedEvent && sponsorSelectedPackage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4">
           <div className="glass rounded-2xl border border-[var(--glass-border)] max-w-md w-full p-6 space-y-6 relative overflow-hidden">
-            <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl"></div>
+            <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
             <div className="flex justify-between items-start">
               <div>
@@ -8382,8 +8773,8 @@ export default function Home() {
                   Apply for <strong className="text-amber-400">{sponsorSelectedPackage.name}</strong> (${sponsorSelectedPackage.price}) for <strong className="text-sky-400">{sponsorSelectedEvent.title}</strong>
                 </p>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowSponsorModal(false)}
                 className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
@@ -8507,11 +8898,43 @@ export default function Home() {
         </div>
       )}
 
+      {/* CUSTOM GLASSMORPHIC ALERT MODAL */}
+      {customAlert !== null && (() => {
+        const style = getAlertStyle(customAlert);
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md px-4 animate-[fadeIn_0.2s_ease-out]">
+            <div className="glass rounded-2xl border border-[var(--glass-border)] max-w-sm w-full p-6 space-y-4 relative overflow-hidden shadow-2xl">
+              <div className="absolute -top-16 -right-16 w-36 h-36 bg-sky-500/10 rounded-full blur-2xl"></div>
+
+              <div className="flex items-start gap-3.5 relative z-10 font-sans">
+                <div className={`p-2.5 rounded-xl border mt-0.5 shrink-0 ${style.colorClass}`}>
+                  {style.icon}
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-[var(--text-primary)] font-mono uppercase tracking-wider">{style.title}</h4>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-sans mt-0.5">{customAlert}</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end relative z-10 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setCustomAlert(null)}
+                  className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-2 px-5 rounded-xl text-xs transition font-outfit shadow-sm shadow-sky-955 cursor-pointer"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* COMMUNITY REVIEW SUBMISSION MODAL DIALOG */}
       {showReviewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4">
           <div className="glass rounded-2xl border border-[var(--glass-border)] max-w-md w-full p-6 space-y-5 relative overflow-hidden">
-            <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl"></div>
+            <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
             <div className="flex justify-between items-start">
               <div>
@@ -8520,8 +8943,8 @@ export default function Home() {
                   Share your experience with the community.
                 </p>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowReviewModal(false)}
                 className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
@@ -8645,7 +9068,7 @@ export default function Home() {
       {inviteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4">
           <div className="glass rounded-2xl border border-[var(--glass-border)] max-w-md w-full p-6 space-y-5 relative overflow-hidden">
-            <div className="absolute -top-16 -right-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl"></div>
+            <div className="absolute -top-16 -right-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
             <div className="flex justify-between items-start">
               <div>
@@ -8654,8 +9077,8 @@ export default function Home() {
                   Share this event experience with your network.
                 </p>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setInviteModalOpen(false)}
                 className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
@@ -8793,7 +9216,7 @@ export default function Home() {
             {(() => {
               const videoUrl = eventVideos[detailPageEvent.id];
               const isAuthorized = currentUserRole === "ADMIN" || currentUserRole === "ORGANIZER";
-              
+
               if (!videoUrl && !isAuthorized) return null;
 
               return (
@@ -8965,11 +9388,10 @@ export default function Home() {
                     </div>
                     <div className="w-full h-2 bg-[var(--glass-border)] rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all ${
-                          (detailPageEvent.ticketsSold / detailPageEvent.ticketInventory) > 0.8 ? "bg-rose-500"
-                            : (detailPageEvent.ticketsSold / detailPageEvent.ticketInventory) > 0.5 ? "bg-amber-500"
+                        className={`h-full rounded-full transition-all ${(detailPageEvent.ticketsSold / detailPageEvent.ticketInventory) > 0.8 ? "bg-rose-500"
+                          : (detailPageEvent.ticketsSold / detailPageEvent.ticketInventory) > 0.5 ? "bg-amber-500"
                             : "bg-emerald-500"
-                        }`}
+                          }`}
                         style={{ width: `${Math.min(100, (detailPageEvent.ticketsSold / detailPageEvent.ticketInventory) * 100)}%` }}
                       />
                     </div>
@@ -8985,15 +9407,36 @@ export default function Home() {
                     <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4 relative overflow-hidden">
                       <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
                       <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
-                          <MapPin className="w-5 h-5 text-indigo-400" />
-                          Venue
-                        </h2>
-                        {vnRating > 0 && (
-                          <div className="flex items-center gap-1.5 bg-[var(--glass-bg)] px-2.5 py-1 rounded-lg border border-[var(--glass-border)]">
-                            {renderStars(vnRating)}
-                          </div>
-                        )}
+                        <div className="space-y-1">
+                          <h2 className="text-lg font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
+                            <MapPin className="w-5 h-5 text-indigo-400" />
+                            Venue
+                          </h2>
+                          {vnRating > 0 && (
+                            <div className="flex items-center gap-1">
+                              {renderStars(vnRating)}
+                              <span className="text-[10px] text-[var(--text-secondary)] font-mono font-bold">({getReviewCount("VENUE", vn.id)})</span>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReviewTargetType("VENUE");
+                            setReviewTargetId(vn.id);
+                            setReviewRating(5);
+                            setReviewComment("");
+                            setReviewAuthorName("");
+                            setReviewAuthorEmail("");
+                            setReviewOtpInput("");
+                            setReviewOtpError(null);
+                            setReviewVerificationStep("form");
+                            setShowReviewModal(true);
+                          }}
+                          className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-1.5 px-3 rounded-xl text-[10px] transition font-outfit shadow-sm shadow-sky-955"
+                        >
+                          Write a Review
+                        </button>
                       </div>
                       <div className="bg-[var(--input-bg)] rounded-xl border border-[var(--glass-border)] p-4 space-y-3">
                         <div>
@@ -9076,11 +9519,31 @@ export default function Home() {
                   return (
                     <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
                       <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
-                          <Star className="w-5 h-5 text-amber-400" />
-                          Community Reviews
-                        </h2>
-                        <span className="text-xs text-[var(--text-secondary)] font-mono">{evtReviews.length} review{evtReviews.length !== 1 ? "s" : ""}</span>
+                        <div className="space-y-1">
+                          <h2 className="text-lg font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
+                            <Star className="w-5 h-5 text-amber-400" />
+                            Community Reviews
+                          </h2>
+                          <p className="text-[10px] text-[var(--text-secondary)] font-mono font-bold">{evtReviews.length} review{evtReviews.length !== 1 ? "s" : ""}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReviewTargetType("EVENT");
+                            setReviewTargetId(detailPageEvent.id);
+                            setReviewRating(5);
+                            setReviewComment("");
+                            setReviewAuthorName("");
+                            setReviewAuthorEmail("");
+                            setReviewOtpInput("");
+                            setReviewOtpError(null);
+                            setReviewVerificationStep("form");
+                            setShowReviewModal(true);
+                          }}
+                          className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-1.5 px-3 rounded-xl text-[10px] transition font-outfit shadow-sm shadow-sky-955"
+                        >
+                          Write a Review
+                        </button>
                       </div>
                       {evtReviews.length === 0 ? (
                         <div className="text-center py-8 space-y-2">
@@ -9115,7 +9578,7 @@ export default function Home() {
                     Event Schedule & Timeline
                   </h2>
                   <p className="text-xs text-[var(--text-secondary)]">Plan your day with the official event itinerary below.</p>
-                  
+
                   <div className="relative border-l border-slate-700 ml-3 pl-6 space-y-6 text-xs pt-2">
                     <div className="relative">
                       <div className="absolute -left-[30px] top-0.5 bg-sky-500 w-3 h-3 rounded-full border-2 border-[var(--bg-primary)]"></div>
@@ -9217,13 +9680,12 @@ export default function Home() {
                                       setTicketQuantity(1);
                                     }
                                   }}
-                                  className={`p-3 rounded-xl border text-left transition-all flex justify-between items-center ${
-                                    classAvail <= 0
-                                      ? "border-[var(--glass-border)] bg-[var(--glass-bg)] opacity-50 cursor-not-allowed text-[var(--text-secondary)]"
-                                      : isSelected
-                                        ? "border-sky-500 bg-sky-500/10 text-[var(--text-primary)] ring-1 ring-sky-500/20 cursor-pointer"
-                                        : "border-[var(--glass-border)] hover:border-[var(--text-secondary)]/30 bg-[var(--input-bg)] cursor-pointer text-[var(--text-primary)]"
-                                  }`}
+                                  className={`p-3 rounded-xl border text-left transition-all flex justify-between items-center ${classAvail <= 0
+                                    ? "border-[var(--glass-border)] bg-[var(--glass-bg)] opacity-50 cursor-not-allowed text-[var(--text-secondary)]"
+                                    : isSelected
+                                      ? "border-sky-500 bg-sky-500/10 text-[var(--text-primary)] ring-1 ring-sky-500/20 cursor-pointer"
+                                      : "border-[var(--glass-border)] hover:border-[var(--text-secondary)]/30 bg-[var(--input-bg)] cursor-pointer text-[var(--text-primary)]"
+                                    }`}
                                 >
                                   <div>
                                     <span className="text-xs font-bold block">{tc.name}</span>
@@ -9260,14 +9722,14 @@ export default function Home() {
                         <button type="button" disabled={ticketQuantity <= 1} onClick={() => setTicketQuantity(prev => Math.max(1, prev - 1))}
                           className="w-10 h-10 rounded-xl bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-slate-605 disabled:opacity-40 font-bold flex items-center justify-center text-xl transition text-[var(--text-primary)]">−</button>
                         <span className="flex-1 text-center text-2xl font-bold font-mono text-[var(--text-primary)]">{ticketQuantity}</span>
-                        <button type="button" 
+                        <button type="button"
                           disabled={(() => {
                             if (detailPageEvent.ticketClasses) {
                               const tc = detailPageEvent.ticketClasses.find(c => c.name === selectedTicketClass);
                               return tc ? ticketQuantity >= (tc.inventory - tc.sold) : true;
                             }
                             return ticketQuantity >= (detailPageEvent.ticketInventory - detailPageEvent.ticketsSold);
-                          })()} 
+                          })()}
                           onClick={() => setTicketQuantity(prev => prev + 1)}
                           className="w-10 h-10 rounded-xl bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-slate-605 disabled:opacity-40 font-bold flex items-center justify-center text-xl transition text-[var(--text-primary)]">+</button>
                       </div>
