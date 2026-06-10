@@ -160,6 +160,67 @@ export interface Venue {
   zipcode?: string;
   latitude?: number;
   longitude?: number;
+
+  // NEW ENHANCED VENUE ATTRIBUTES
+  status?: "Active" | "Inactive" | "Under Renovation";
+  country?: string;
+  timezone?: string;
+  minCapacity?: number;
+  seatingCapacity?: number;
+  standingCapacity?: number;
+  roomsCount?: number;
+  floorArea?: number;
+  layoutTypes?: ("Theater" | "Classroom" | "U-Shape" | "Banquet" | "Boardroom")[];
+  managerName?: string;
+  managerEmail?: string;
+  managerPhone?: string;
+  alternateContact?: string;
+  website?: string;
+  rentalCost?: number;
+  currency?: string;
+  costPerHour?: number;
+  costPerDay?: number;
+  securityDeposit?: number;
+  taxInfo?: string;
+  cancellationPolicy?: string;
+  parkingAvailable?: boolean;
+  parkingCapacity?: number;
+  wifiAvailable?: boolean;
+  wifiSpeed?: number;
+  avEquipment?: boolean;
+  projectors?: boolean;
+  soundSystem?: boolean;
+  stage?: boolean;
+  airConditioning?: boolean;
+  cateringAvailable?: boolean;
+  kitchenAccess?: boolean;
+  greenRooms?: boolean;
+  wheelchairAccessible?: boolean;
+  restroomsCount?: number;
+  powerBackup?: boolean;
+  setupTime?: number;
+  cleanupTime?: number;
+  loadingDock?: boolean;
+  freightElevator?: boolean;
+  vendorRestrictions?: string;
+  noiseRestrictions?: string;
+  photos?: string[];
+  videos?: string[];
+  floorPlans?: string[];
+  virtualTourUrl?: string;
+  fireSafetyCertified?: boolean;
+  insuranceDetails?: string;
+  emergencyExitsCount?: number;
+  securityAvailable?: boolean;
+  accessibilityCompliance?: boolean;
+  blockedDates?: string[];
+  maintenanceSchedule?: { date: string; reason: string }[];
+  peakSeasonFlag?: boolean;
+  avgRating?: number;
+  reviewsCount?: number;
+  internalNotes?: string;
+  preferredVenueFlag?: boolean;
+  documents?: { id: string; name: string; type: string; fileUrl: string; expiryDate?: string }[];
 }
 
 export interface VenueBooking {
