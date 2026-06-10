@@ -3988,6 +3988,7 @@ export default function Home() {
             getAverageRating={getAverageRating}
             getReviewCount={getReviewCount}
             renderStars={renderStars}
+            events={events}
           />
         )}
 
