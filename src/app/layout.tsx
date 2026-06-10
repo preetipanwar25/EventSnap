@@ -17,6 +17,19 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "AuraTickets - Premium Event & Ticketing Platform",
   description: "Secure, real-time ticket bookings, automated inventory, and live transaction analytics.",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'none',
+      'max-snippet': -1,
+    },
+  },
 };
 
 export default function RootLayout({
