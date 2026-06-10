@@ -110,6 +110,47 @@ export interface Event {
   sponsorPackages?: SponsorPackage[];
   moderationStatus?: "PENDING" | "APPROVED" | "REJECTED";
   ticketClasses?: { name: string; price: number; inventory: number; sold: number }[];
+
+  // ORGANIZER CONSOLE ENHANCEMENTS
+  code?: string;
+  eventStatus?: "Draft" | "Planning" | "Published" | "Registration Open" | "Registration Closed" | "In Progress" | "Completed" | "Cancelled";
+  endDate?: string;
+  timezone?: string;
+  registrationOpenDate?: string;
+  registrationCloseDate?: string;
+  roomAssignment?: string;
+  virtualLink?: string;
+  maxCapacity?: number;
+  waitlistEnabled?: boolean;
+  waitlistCapacity?: number;
+  registrationRequired?: boolean;
+  eventType?: "In-Person" | "Virtual" | "Hybrid";
+  currency?: string;
+  targetAudience?: string;
+  industry?: string;
+  experienceLevel?: string;
+  eligibility?: string;
+  bannerUrl?: string;
+  logoUrl?: string;
+  themeColor?: string;
+  websiteUrl?: string;
+  budget?: number;
+  actualCost?: number;
+  sponsorshipTarget?: number;
+  terms?: string;
+  privacyPolicy?: string;
+  consentRequired?: boolean;
+  npsScore?: number;
+  feedbackScore?: number;
+  
+  // Child records simulations
+  sessions?: { id: string; name: string; startTime: string; endTime: string; speakerId: string; room: string; capacity: number }[];
+  speakers?: { id: string; name: string; email: string; phone: string; bio: string; avatarUrl: string }[];
+  registrations?: { id: string; name: string; email: string; status: "Approved" | "Rejected" | "Pending" | "Waitlisted"; date: string; checkedIn: boolean }[];
+  foodTrucks?: { id: string; name: string; cuisine: string; permitNumber: string; powerRequired: string; waterRequired: boolean; spot: string; status: "Approved" | "Rejected" | "Pending" }[];
+  vendors?: { id: string; name: string; category: string; taxId: string; license: string; space: string; status: "Approved" | "Rejected" | "Pending" }[];
+  exhibitors?: { id: string; companyName: string; contactName: string; email: string; phone: string; website: string; industry: string; status: "Approved" | "Rejected" | "Pending"; boothRequested?: string; boothAssigned?: string }[];
+  documents?: { id: string; name: string; type: string; fileUrl: string; expiryDate?: string }[];
 }
 
 export interface Review {
