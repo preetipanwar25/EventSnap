@@ -3539,6 +3539,19 @@ export default function Home() {
                         <button
                           type="button"
                           onClick={() => {
+                            setCurrentUserRole("ORGANIZER");
+                            setActiveTab("organizer");
+                            addSagaLog("Auth-Service", `Redirected to Organizer Console via Create Event.`, "info");
+                          }}
+                          className="w-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold py-2.5 rounded-xl shadow shadow-sky-500/10 transition-all flex items-center justify-center gap-2 text-xs font-outfit cursor-pointer animate-pulse-hover"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Create Event
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
                             setCurrentUserRole("SPONSOR");
                             setActiveTab("sponsor");
                             addSagaLog("Auth-Service", `Mock login: Switched role to [SPONSOR] via Sponsor Event action.`, "info");
