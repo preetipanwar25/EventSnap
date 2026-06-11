@@ -443,17 +443,27 @@ export default function Home() {
       if (saved) return JSON.parse(saved);
     }
     return [
-      { id: "usr-1", name: "Jane Doe (Attendee)", email: "jane@doe.com", role: "ATTENDEE", status: "ACTIVE" },
-      { id: "usr-2", name: "Sarah Connor (Organizer)", email: "sarah@sfvenues.com", role: "ORGANIZER", status: "ACTIVE" },
-      { id: "usr-3", name: "Luigi Rossini (Vendor)", email: "luigi@woodfiredpizza.it", role: "VENDOR", status: "ACTIVE" },
-      { id: "usr-4", name: "Apex Sponsors (Sponsor)", email: "sponsor@apex.com", role: "SPONSOR", status: "ACTIVE" },
-      { id: "usr-5", name: "System Admin (Admin)", email: "admin@auratickets.com", role: "ADMIN", status: "ACTIVE" },
-      { id: "usr-6", name: "Sarah Connor (Venue Provider)", email: "sarah@sfvenues.com", role: "VENUE_PROVIDER", status: "ACTIVE" },
+      { id: "usr-1", name: "Jane Doe (Attendee)", email: "jane@doe.com", phone: "+1 555-0199", role: "ATTENDEE", status: "ACTIVE" },
+      { id: "usr-2", name: "Sarah Connor (Organizer)", email: "sarah@sfvenues.com", phone: "+1 555-0188", role: "ORGANIZER", status: "ACTIVE" },
+      { id: "usr-3", name: "Luigi Rossini (Vendor)", email: "luigi@woodfiredpizza.it", phone: "+1 555-0177", role: "VENDOR", status: "ACTIVE" },
+      { id: "usr-4", name: "Apex Sponsors (Sponsor)", email: "sponsor@apex.com", phone: "+1 555-0166", role: "SPONSOR", status: "ACTIVE" },
+      { id: "usr-5", name: "System Admin (Admin)", email: "admin@auratickets.com", phone: "+1 555-0155", role: "ADMIN", status: "ACTIVE" },
+      { id: "usr-6", name: "Sarah Connor (Venue Provider)", email: "sarah@sfvenues.com", phone: "+1 555-0188", role: "VENUE_PROVIDER", status: "ACTIVE" },
     ];
   });
 
   useEffect(() => {
     localStorage.setItem("users_list", JSON.stringify(users));
+  }, [users]);
+
+  // Synchronize Jane Doe profile states
+  useEffect(() => {
+    const jane = users.find(u => u.id === "usr-1");
+    if (jane) {
+      setAttendeeProfileName(jane.name);
+      setAttendeeProfileEmail(jane.email);
+      setAttendeeProfilePhone(jane.phone || "");
+    }
   }, [users]);
 
   // Notifications State
@@ -801,6 +811,11 @@ export default function Home() {
   const [simulatePaymentFailure, setSimulatePaymentFailure] = useState(false);
   const [newOrderId, setNewOrderId] = useState("");
 
+  // Attendee Profile Form State
+  const [attendeeProfileName, setAttendeeProfileName] = useState("");
+  const [attendeeProfileEmail, setAttendeeProfileEmail] = useState("");
+  const [attendeeProfilePhone, setAttendeeProfilePhone] = useState("");
+
   // Search & Filter state variables
   const [searchQuery, setSearchQuery] = useState("");
   const [searchZip, setSearchZip] = useState("");
@@ -819,9 +834,44 @@ export default function Home() {
   const [showEventGeoOverrides, setShowEventGeoOverrides] = useState(false);
   const [showVenueGeoOverrides, setShowVenueGeoOverrides] = useState(false);
 
+  // Auto-detect and set default city/state if browser shares location
+  useEffect(() => {
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          
+          let closest = null;
+          let minDistance = Infinity;
+          for (const [zip, data] of Object.entries(ZIP_LOOKUP)) {
+            const dist = getDistanceInMiles(lat, lon, data.lat, data.lng);
+            if (dist < minDistance) {
+              minDistance = dist;
+              closest = { zip, ...data };
+            }
+          }
+          
+          if (closest) {
+            setSearchCity(closest.city);
+            setSearchState(closest.state);
+            setSearchZip(closest.zip);
+            setUserCoords({ latitude: lat, longitude: lon });
+            setSearchUseGeo(true);
+            addSagaLog("Location-Service", `Browser shared position (${lat.toFixed(4)}, ${lon.toFixed(4)}). Default search location set to ${closest.city}, ${closest.state}.`, "info");
+          }
+        },
+        (error) => {
+          console.warn("Browser shared location rejected or failed:", error);
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    }
+  }, []);
+
   // Filter events based on criteria
   const filteredEvents = useMemo(() => {
-    return events.filter(ev => {
+    const baseFiltered = events.filter(ev => {
       // 1. Keyword search (matches title, description, category, or location)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -839,13 +889,6 @@ export default function Home() {
         const z = searchZip.trim().toLowerCase();
         const evZip = (ev.zipcode || "").toLowerCase();
         if (!evZip.includes(z)) return false;
-      }
-
-      // 3. City
-      if (searchCity.trim()) {
-        const c = searchCity.trim().toLowerCase();
-        const evCity = (ev.city || "").toLowerCase();
-        if (!evCity.includes(c)) return false;
       }
 
       // 4. State
@@ -884,7 +927,52 @@ export default function Home() {
       if (!isApproved) return false;
 
       return true;
-    }).sort((a, b) => {
+    });
+
+    if (searchCity.trim()) {
+      const c = searchCity.trim().toLowerCase();
+      const directMatch = baseFiltered.filter(ev => (ev.city || "").toLowerCase().includes(c));
+      if (directMatch.length > 0) {
+        return directMatch.sort((a, b) => {
+          const aSpon = a.isSponsored ? 1 : 0;
+          const bSpon = b.isSponsored ? 1 : 0;
+          if (aSpon !== bSpon) return bSpon - aSpon; // Sponsored first
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        });
+      }
+
+      // Fallback: No events found in this city. Match closest events using distance lookup
+      const cityRef = Object.values(ZIP_LOOKUP).find(
+        data => data.city.toLowerCase() === c
+      );
+      const targetLat = cityRef ? cityRef.lat : (userCoords ? userCoords.latitude : 37.7726);
+      const targetLng = cityRef ? cityRef.lng : (userCoords ? userCoords.longitude : -122.4098);
+
+      const getEventDistance = (ev: Event) => {
+        if (ev.latitude !== undefined && ev.longitude !== undefined) {
+          return getDistanceInMiles(targetLat, targetLng, ev.latitude, ev.longitude);
+        }
+        const evCityLower = (ev.city || "").trim().toLowerCase();
+        const evRef = Object.values(ZIP_LOOKUP).find(
+          item => item.city.toLowerCase() === evCityLower
+        );
+        if (evRef) {
+          return getDistanceInMiles(targetLat, targetLng, evRef.lat, evRef.lng);
+        }
+        return 99999;
+      };
+
+      return [...baseFiltered].sort((a, b) => {
+        const distDiff = getEventDistance(a) - getEventDistance(b);
+        if (Math.abs(distDiff) < 1) {
+          // If distances are equal, sort by date
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        }
+        return distDiff;
+      });
+    }
+
+    return baseFiltered.sort((a, b) => {
       const aSpon = a.isSponsored ? 1 : 0;
       const bSpon = b.isSponsored ? 1 : 0;
       if (aSpon !== bSpon) {
@@ -893,6 +981,16 @@ export default function Home() {
       return new Date(a.date).getTime() - new Date(b.date).getTime();
     });
   }, [events, searchQuery, searchZip, searchCity, searchState, searchDateStart, searchDateEnd, searchUseGeo, searchRadius, userCoords]);
+
+  const isCitySearchFallbackActive = useMemo(() => {
+    if (!searchCity.trim()) return false;
+    const c = searchCity.trim().toLowerCase();
+    const hasDirectMatch = events.some(ev => 
+      (ev.city || "").toLowerCase().includes(c) && 
+      (ev.moderationStatus === undefined || ev.moderationStatus === "APPROVED")
+    );
+    return !hasDirectMatch;
+  }, [events, searchCity]);
 
   // Admin Form State
   const [newEventTitle, setNewEventTitle] = useState("");
@@ -1075,6 +1173,34 @@ export default function Home() {
     } else {
       setShow2FaModal(true);
     }
+  };
+
+  const handleSaveAttendeeProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!attendeeProfileName.trim() || !attendeeProfileEmail.trim()) {
+      alert("Name and Email fields are required.");
+      return;
+    }
+    
+    setUsers(prev => {
+      const updated = prev.map(u => {
+        if (u.id === "usr-1") {
+          return {
+            ...u,
+            name: attendeeProfileName,
+            email: attendeeProfileEmail,
+            phone: attendeeProfilePhone
+          };
+        }
+        return u;
+      });
+      localStorage.setItem("users_list", JSON.stringify(updated));
+      return updated;
+    });
+
+    addSagaLog("Auth-Service", `Updated Attendee profile details (Name: ${attendeeProfileName}, Email: ${attendeeProfileEmail}, Phone: ${attendeeProfilePhone}).`, "success");
+    addNotification("Profile Updated", "Your profile details have been updated successfully.", "ATTENDEE");
+    alert("👤 Profile details updated successfully!");
   };
 
   const handleVerifyOtp = () => {
@@ -3073,7 +3199,12 @@ export default function Home() {
                 </div>
 
                 {/* Event Cards Grid */}
-                {/* Event Cards Grid */}
+                {isCitySearchFallbackActive && filteredEvents.length > 0 && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 flex items-start gap-2 text-xs mb-4 animate-[fadeIn_0.3s_ease-out] font-sans">
+                    <Info className="w-4.5 h-4.5 shrink-0 mt-0.5" />
+                    <span>No events found in <strong>"{searchCity}"</strong>. Showing closest city events instead.</span>
+                  </div>
+                )}
                 {catalogView === "grid" && (
                   filteredEvents.length === 0 ? (
                     <div className="glass rounded-2xl border border-[var(--glass-border)] p-12 text-center text-[var(--text-secondary)] space-y-4">
@@ -3829,6 +3960,59 @@ export default function Home() {
             {/* Attendee Dashboard Panels */}
             <div className="space-y-6">
               
+              {/* Attendee Profile Editor */}
+              <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                <h3 className="text-lg font-bold text-[var(--text-primary)] font-outfit flex items-center gap-2">
+                  👤 Profile Details
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)]">Manage your name, contact phone, and billing email address.</p>
+                
+                <form onSubmit={handleSaveAttendeeProfile} className="space-y-3 font-sans text-xs">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Attendee Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={attendeeProfileName}
+                      onChange={(e) => setAttendeeProfileName(e.target.value)}
+                      placeholder="e.g. Jane Doe"
+                      className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Email Address *</label>
+                      <input
+                        type="email"
+                        required
+                        value={attendeeProfileEmail}
+                        onChange={(e) => setAttendeeProfileEmail(e.target.value)}
+                        placeholder="e.g. jane@doe.com"
+                        className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Phone Number</label>
+                      <input
+                        type="text"
+                        value={attendeeProfilePhone}
+                        onChange={(e) => setAttendeeProfilePhone(e.target.value)}
+                        placeholder="e.g. +1 555-0199"
+                        className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-lg py-1.5 px-3 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-1.5 rounded-lg text-xs transition cursor-pointer font-outfit"
+                  >
+                    Save Profile Settings
+                  </button>
+                </form>
+              </div>
+
               {/* Personal Insights & Spending Analytics */}
               <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-6 relative overflow-hidden">
                 <div className="absolute -top-16 -right-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl"></div>
@@ -4003,6 +4187,7 @@ export default function Home() {
             booths={booths}
             setBooths={setBooths}
             venues={venues}
+            setVenues={setVenues}
             venueBookings={venueBookings}
             setVenueBookings={setVenueBookings}
             vendorProfiles={vendorProfiles}

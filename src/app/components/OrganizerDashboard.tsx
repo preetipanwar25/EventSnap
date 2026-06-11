@@ -48,6 +48,7 @@ interface OrganizerDashboardProps {
   booths: Booth[];
   setBooths: React.Dispatch<React.SetStateAction<Booth[]>>;
   venues: Venue[];
+  setVenues: React.Dispatch<React.SetStateAction<Venue[]>>;
   venueBookings: VenueBooking[];
   setVenueBookings: React.Dispatch<React.SetStateAction<VenueBooking[]>>;
   vendorProfiles: VendorProfile[];
@@ -78,6 +79,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
   booths,
   setBooths,
   venues,
+  setVenues,
   venueBookings,
   setVenueBookings,
   vendorProfiles,
@@ -139,6 +141,18 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
 
   const [newDocName, setNewDocName] = useState("");
   const [newDocType, setNewDocType] = useState("Contract");
+
+  // Custom Venue Registration Form State
+  const [customVenueName, setCustomVenueName] = useState("");
+  const [customVenueType, setCustomVenueType] = useState<"Convention Center" | "Hotel" | "Banquet Hall" | "Stadium" | "Conference Room" | "Outdoor Venue">("Convention Center");
+  const [customVenueCapacity, setCustomVenueCapacity] = useState("");
+  const [customVenueAddress, setCustomVenueAddress] = useState("");
+  const [customVenueCity, setCustomVenueCity] = useState("");
+  const [customVenueState, setCustomVenueState] = useState("");
+  const [customVenueCost, setCustomVenueCost] = useState("");
+  const [customVenueWifi, setCustomVenueWifi] = useState(true);
+  const [customVenueParking, setCustomVenueParking] = useState(true);
+  const [customVenueAV, setCustomVenueAV] = useState(true);
 
   // Exhibitor and Food Truck Registration Form Simulation
   const [exhibitorCompanyName, setExhibitorCompanyName] = useState("");
@@ -460,6 +474,90 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
   };
 
   // Venue assigning conflict checks
+  const handleCreateCustomVenue = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeEvent) return;
+    if (!customVenueName.trim() || !customVenueCapacity || !customVenueAddress.trim() || !customVenueCity.trim() || !customVenueState.trim() || !customVenueCost) {
+      alert("Please fill in all custom venue fields.");
+      return;
+    }
+
+    const capacityNum = parseInt(customVenueCapacity);
+    const costNum = parseFloat(customVenueCost);
+    if (isNaN(capacityNum) || capacityNum <= 0) {
+      alert("Please enter a valid capacity.");
+      return;
+    }
+    if (isNaN(costNum) || costNum < 0) {
+      alert("Please enter a valid daily cost.");
+      return;
+    }
+
+    const newVenueId = `vn-custom-${Date.now()}`;
+    const newVenue: Venue = {
+      id: newVenueId,
+      providerId: activeOrganizerProfile?.id || "org-sarah",
+      name: customVenueName,
+      type: customVenueType,
+      description: "Custom organizer registered event space.",
+      location: `${customVenueAddress}; ${customVenueCity}; ${customVenueState}`,
+      capacity: capacityNum,
+      services: [
+        customVenueWifi ? "Wi-Fi" : "",
+        customVenueParking ? "Parking Available" : "",
+        customVenueAV ? "AV Equipment" : ""
+      ].filter(Boolean),
+      parkingSpots: customVenueParking ? 50 : 0,
+      availableDates: [activeEvent.date],
+      imageUrl: "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&auto=format&fit=crop&q=80",
+      city: customVenueCity,
+      state: customVenueState,
+      status: "Active",
+      rentalCost: costNum,
+      costPerDay: costNum,
+      wifiAvailable: customVenueWifi,
+      parkingAvailable: customVenueParking,
+      avEquipment: customVenueAV,
+      cancellationPolicy: "Standard 72-hour notice."
+    };
+
+    setVenues(prev => {
+      const updated = [...prev, newVenue];
+      localStorage.setItem("venues", JSON.stringify(updated));
+      return updated;
+    });
+
+    updateActiveEvent({ venueId: newVenueId, location: `${newVenue.name}, ${newVenue.city}, ${newVenue.state}` });
+    setVenueConflictAlert(null);
+
+    const newBooking: VenueBooking = {
+      id: `bk-custom-${Date.now()}`,
+      venueId: newVenueId,
+      eventId: activeEvent.id,
+      eventTitle: activeEvent.title,
+      date: activeEvent.date,
+      status: "CONFIRMED"
+    };
+
+    setVenueBookings(prev => {
+      const updated = [...prev, newBooking];
+      localStorage.setItem("venueBookings", JSON.stringify(updated));
+      return updated;
+    });
+
+    addSagaLog("Organizer-Service", `Registered & allocated custom organizer venue: ${newVenue.name}.`, "success");
+    addNotification("Custom Venue Registered", `Custom venue "${newVenue.name}" was successfully registered and booked.`, "ORGANIZER");
+    alert(`🏰 Custom venue "${newVenue.name}" created and assigned to this event!`);
+
+    // Reset Form
+    setCustomVenueName("");
+    setCustomVenueCapacity("");
+    setCustomVenueAddress("");
+    setCustomVenueCity("");
+    setCustomVenueState("");
+    setCustomVenueCost("");
+  };
+
   const handleAssignVenueId = (venueId: string) => {
     if (!activeEvent) return;
     if (venueId === "none") {
@@ -1939,7 +2037,9 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
 
               {/* TAB 3: VENUE INTEGRATION */}
               {commandActiveTab === "venue" && (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-[fadeIn_0.3s_ease-out]">
+                  
+                  {/* Left Column: Existing Allocate */}
                   <div className="p-4 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-2xl space-y-3">
                     <span className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-1.5 font-outfit">
                       <MapPin className="w-4.5 h-4.5 text-indigo-400" />
@@ -1984,6 +2084,145 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
                       );
                     })()}
                   </div>
+
+                  {/* Right Column: Register Custom Venue */}
+                  <div className="p-4 bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-2xl space-y-3 font-sans text-xs">
+                    <span className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-1.5 font-outfit">
+                      <Plus className="w-4.5 h-4.5 text-emerald-400" />
+                      Register &amp; Book Custom Venue
+                    </span>
+                    <p className="text-[10px] text-[var(--text-secondary)]">Create a custom venue profile to allocate directly to this event.</p>
+                    
+                    <form onSubmit={handleCreateCustomVenue} className="space-y-2.5">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Venue Name *</label>
+                        <input
+                          type="text"
+                          required
+                          value={customVenueName}
+                          onChange={(e) => setCustomVenueName(e.target.value)}
+                          placeholder="e.g. Skyline Event Center"
+                          className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Type *</label>
+                          <select
+                            value={customVenueType}
+                            onChange={(e) => setCustomVenueType(e.target.value as any)}
+                            className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-lg py-1 px-2 text-xs text-[var(--text-primary)] w-full cursor-pointer focus:outline-none"
+                          >
+                            <option value="Convention Center">Convention Center</option>
+                            <option value="Hotel">Hotel</option>
+                            <option value="Banquet Hall">Banquet Hall</option>
+                            <option value="Stadium">Stadium</option>
+                            <option value="Conference Room">Conference Room</option>
+                            <option value="Outdoor Venue">Outdoor Venue</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Capacity *</label>
+                          <input
+                            type="number"
+                            required
+                            value={customVenueCapacity}
+                            onChange={(e) => setCustomVenueCapacity(e.target.value)}
+                            placeholder="e.g. 500"
+                            className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Street Address *</label>
+                        <input
+                          type="text"
+                          required
+                          value={customVenueAddress}
+                          onChange={(e) => setCustomVenueAddress(e.target.value)}
+                          placeholder="e.g. 505 Broadway Ave"
+                          className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">City *</label>
+                          <input
+                            type="text"
+                            required
+                            value={customVenueCity}
+                            onChange={(e) => setCustomVenueCity(e.target.value)}
+                            placeholder="e.g. San Francisco"
+                            className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">State / Prov *</label>
+                          <input
+                            type="text"
+                            required
+                            value={customVenueState}
+                            onChange={(e) => setCustomVenueState(e.target.value)}
+                            placeholder="e.g. CA"
+                            className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Daily Rental Cost ($) *</label>
+                        <input
+                          type="number"
+                          required
+                          value={customVenueCost}
+                          onChange={(e) => setCustomVenueCost(e.target.value)}
+                          placeholder="e.g. 1500"
+                          className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-lg py-1 px-2.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="flex justify-between items-center gap-2 pt-1">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-[var(--text-secondary)] select-none">
+                          <input
+                            type="checkbox"
+                            checked={customVenueWifi}
+                            onChange={() => setCustomVenueWifi(!customVenueWifi)}
+                            className="rounded border-slate-700 bg-transparent text-emerald-500 focus:ring-0 cursor-pointer"
+                          />
+                          <span>Wi-Fi</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-[var(--text-secondary)] select-none">
+                          <input
+                            type="checkbox"
+                            checked={customVenueParking}
+                            onChange={() => setCustomVenueParking(!customVenueParking)}
+                            className="rounded border-slate-700 bg-transparent text-emerald-500 focus:ring-0 cursor-pointer"
+                          />
+                          <span>Parking</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-[var(--text-secondary)] select-none">
+                          <input
+                            type="checkbox"
+                            checked={customVenueAV}
+                            onChange={() => setCustomVenueAV(!customVenueAV)}
+                            className="rounded border-slate-700 bg-transparent text-emerald-500 focus:ring-0 cursor-pointer"
+                          />
+                          <span>AV Equip</span>
+                        </label>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-1.5 rounded text-xs transition cursor-pointer font-outfit"
+                      >
+                        Create &amp; Allocate Venue
+                      </button>
+                    </form>
+                  </div>
+
                 </div>
               )}
 

@@ -2,6 +2,7 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   role: "ATTENDEE" | "ORGANIZER" | "VENDOR" | "SPONSOR" | "ADMIN" | "VENUE_PROVIDER";
   status: "ACTIVE" | "SUSPENDED";
 }
