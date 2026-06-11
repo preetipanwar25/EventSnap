@@ -638,10 +638,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       onChange={(e) => setNewEventCategory(e.target.value)}
                       className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 w-full"
                     >
+                      <option value="Conference">Conference</option>
+                      <option value="Trade Show">Trade Show</option>
+                      <option value="Festival">Festival</option>
+                      <option value="Community Event">Community Event</option>
+                      <option value="Corporate Event">Corporate Event</option>
+                      <option value="Expo">Expo</option>
+                      <option value="Farmers Market">Farmers Market</option>
+                      <option value="Sports Event">Sports Event</option>
                       <option value="Technology">Technology</option>
                       <option value="Music">Music</option>
                       <option value="Food &amp; Drink">Food &amp; Drink</option>
-                      <option value="Sports">Sports</option>
                     </select>
                   </div>
                 </div>

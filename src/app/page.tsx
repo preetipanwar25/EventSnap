@@ -3826,8 +3826,78 @@ export default function Home() {
               )}
             </div>
 
-            {/* Attendee Security Settings & 2FA */}
+            {/* Attendee Dashboard Panels */}
             <div className="space-y-6">
+              
+              {/* Personal Insights & Spending Analytics */}
+              <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-6 relative overflow-hidden">
+                <div className="absolute -top-16 -right-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl"></div>
+                <div>
+                  <span className="text-[9px] text-slate-500 font-mono uppercase tracking-widest block font-bold">Personal Insights</span>
+                  <h3 className="text-lg font-bold text-[var(--text-primary)] font-outfit mt-0.5">Attendee Analytics</h3>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-1">Summary of your event attendance, spending, and engagement.</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 font-mono">
+                  <div className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-3 rounded-xl">
+                    <span className="text-[9px] text-[var(--text-secondary)] uppercase block font-sans font-bold">Events Attended</span>
+                    <span className="text-xl font-bold text-sky-400 mt-1 block">
+                      {orders.filter(o => o.status === "PAID" && o.type === "TICKET").length}
+                    </span>
+                  </div>
+                  <div className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-3 rounded-xl">
+                    <span className="text-[9px] text-[var(--text-secondary)] uppercase block font-sans font-bold">Total Ticket Spend</span>
+                    <span className="text-xl font-bold text-emerald-400 mt-1 block">
+                      ${orders.filter(o => o.status === "PAID" && o.type === "TICKET").reduce((acc, o) => acc + o.totalAmount, 0)}
+                    </span>
+                  </div>
+                  <div className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-3 rounded-xl">
+                    <span className="text-[9px] text-[var(--text-secondary)] uppercase block font-sans font-bold">Sessions Visited</span>
+                    <span className="text-xl font-bold text-indigo-400 mt-1 block">3</span>
+                  </div>
+                  <div className="bg-[var(--glass-bg)] border border-[var(--glass-border)] p-3 rounded-xl">
+                    <span className="text-[9px] text-[var(--text-secondary)] uppercase block font-sans font-bold">Vendor Visits</span>
+                    <span className="text-xl font-bold text-amber-400 mt-1 block">6</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-[var(--glass-border)] text-xs text-[var(--text-primary)] font-sans">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--text-secondary)]">Preferred Categories:</span>
+                    <span className="font-semibold text-sky-400">Technology, Music, Food</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--text-secondary)]">Conversion Rate:</span>
+                    <span className="font-semibold text-emerald-400 font-mono">100% Checkout</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Suggested & Trending Event Recommendations */}
+              <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-4">
+                <h4 className="text-sm font-bold text-[var(--text-primary)] font-outfit flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-amber-400" />
+                  Recommended for You
+                </h4>
+                <p className="text-[11px] text-[var(--text-secondary)]">Personalized suggestions based on your category preferences.</p>
+                <div className="space-y-3 font-sans">
+                  {events
+                    .filter(e => e.status === "UPCOMING" && (e.moderationStatus === undefined || e.moderationStatus === "APPROVED"))
+                    .slice(0, 2)
+                    .map(ev => (
+                      <div key={ev.id} className="p-3 rounded-xl bg-[var(--input-bg)] border border-[var(--glass-border)] text-xs space-y-1.5 hover:border-slate-500 transition cursor-pointer" onClick={() => { setSelectedEvent(ev); setActiveTab("catalog"); }}>
+                        <div className="flex justify-between font-outfit font-bold text-[var(--text-primary)]">
+                          <span className="truncate max-w-[150px]">{ev.title}</span>
+                          <span className="text-amber-400 font-mono">${ev.price}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-[var(--text-secondary)] font-mono">
+                          <span>{ev.date}</span>
+                          <span className="uppercase text-sky-400 font-bold">{ev.category}</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
 
               {/* 2FA Setup */}
               <div className="glass rounded-2xl border border-[var(--glass-border)] p-6 space-y-6">

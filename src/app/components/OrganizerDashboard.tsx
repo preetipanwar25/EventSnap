@@ -1099,9 +1099,17 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
                       className="bg-[var(--input-bg)] border border-[var(--input-border)] text-xs text-[var(--text-primary)] rounded-lg py-1.5 px-2.5 w-full focus:outline-none focus:border-sky-500 cursor-pointer font-sans"
                     >
                       <option value="ALL">All Categories</option>
+                      <option value="Conference">Conference</option>
+                      <option value="Trade Show">Trade Show</option>
+                      <option value="Festival">Festival</option>
+                      <option value="Community Event">Community Event</option>
+                      <option value="Corporate Event">Corporate Event</option>
+                      <option value="Expo">Expo</option>
+                      <option value="Farmers Market">Farmers Market</option>
+                      <option value="Sports Event">Sports Event</option>
                       <option value="Technology">Technology</option>
                       <option value="Music">Music</option>
-                      <option value="Food & Drink">Food & Drink</option>
+                      <option value="Food &amp; Drink">Food &amp; Drink</option>
                       <option value="Business">Business</option>
                       <option value="Sports">Sports</option>
                     </select>
@@ -1626,14 +1634,19 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
                       >
                         <option value="Conference">Conference</option>
                         <option value="Trade Show">Trade Show</option>
+                        <option value="Festival">Festival</option>
+                        <option value="Community Event">Community Event</option>
+                        <option value="Corporate Event">Corporate Event</option>
+                        <option value="Expo">Expo</option>
+                        <option value="Farmers Market">Farmers Market</option>
+                        <option value="Sports Event">Sports Event</option>
                         <option value="Webinar">Webinar</option>
                         <option value="Workshop">Workshop</option>
                         <option value="Meetup">Meetup</option>
-                        <option value="Corporate Event">Corporate Event</option>
                         <option value="Fundraiser">Fundraiser</option>
                         <option value="Technology">Technology</option>
                         <option value="Music">Music</option>
-                        <option value="Food & Drink">Food & Drink</option>
+                        <option value="Food &amp; Drink">Food &amp; Drink</option>
                       </select>
                     </div>
 
