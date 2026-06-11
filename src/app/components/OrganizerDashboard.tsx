@@ -147,6 +147,8 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
   const [exhibitorPhone, setExhibitorPhone] = useState("");
   const [exhibitorWeb, setExhibitorWeb] = useState("");
   const [exhibitorInd, setExhibitorInd] = useState("Technology");
+  const [exhibitorProd, setExhibitorProd] = useState("");
+  const [exhibitorLogo, setExhibitorLogo] = useState("");
   
   const [truckBusinessName, setTruckBusinessName] = useState("");
   const [truckName, setTruckName] = useState("");
@@ -155,14 +157,25 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
   const [truckPower, setTruckPower] = useState("50 Amp");
   const [truckWater, setTruckWater] = useState(false);
   const [truckSpot, setTruckSpot] = useState("Spot A");
+  const [truckMenu, setTruckMenu] = useState("");
+  const [truckInsurance, setTruckInsurance] = useState("");
+  const [truckDims, setTruckDims] = useState("20x8 ft");
+  const [truckArrival, setTruckArrival] = useState("08:00 AM");
 
   const [vendorNameSim, setVendorNameSim] = useState("");
+  const [vendorLic, setVendorLic] = useState("");
   const [vendorCatSim, setVendorCatSim] = useState("Promotional");
   const [vendorTaxId, setVendorTaxId] = useState("");
   const [vendorSpace, setVendorSpace] = useState("Space 10");
 
   const [sponsorNameSim, setSponsorNameSim] = useState("");
   const [sponsorLevelSim, setSponsorLevelSim] = useState("Gold");
+
+  // Booth Management State variables
+  const [newBoothName, setNewBoothName] = useState("");
+  const [newBoothType, setNewBoothType] = useState<"Standard" | "Premium" | "Corner" | "Island" | "Outdoor">("Standard");
+  const [newBoothPrice, setNewBoothPrice] = useState(500);
+  const [selectedBoothId, setSelectedBoothId] = useState<string | null>(null);
 
   // Venue Integration Conflict Flags
   const [venueConflictAlert, setVenueConflictAlert] = useState<string | null>(null);
@@ -511,8 +524,10 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
       phone: exhibitorPhone || "555-0100",
       website: exhibitorWeb || "www.company.com",
       industry: exhibitorInd,
-      status: "Pending" as const,
-      boothRequested: "Standard #1"
+      status: "Submitted" as const,
+      boothRequested: "Standard #1",
+      productsServices: exhibitorProd || "Tech solutions",
+      logoUrl: exhibitorLogo || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100"
     };
 
     const current = activeEvent.exhibitors || [];
@@ -522,6 +537,8 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
     setExhibitorEmail("");
     setExhibitorPhone("");
     setExhibitorWeb("");
+    setExhibitorProd("");
+    setExhibitorLogo("");
     alert("Exhibitor application submitted for review.");
   };
 
@@ -545,7 +562,11 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
       powerRequired: truckPower,
       waterRequired: truckWater,
       spot: truckSpot,
-      status: "Pending" as const
+      status: "Pending" as const,
+      menu: truckMenu || "Gourmet Street Food",
+      insuranceCertificate: truckInsurance || "INS-8902",
+      dimensions: truckDims || "20x8 ft",
+      arrivalWindow: truckArrival || "08:00 AM"
     };
 
     const current = activeEvent.foodTrucks || [];
@@ -554,6 +575,8 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
     setTruckName("");
     setTruckCuisine("");
     setTruckPermit("");
+    setTruckMenu("");
+    setTruckInsurance("");
     alert("Food Truck application added and pending approval.");
   };
 
@@ -565,6 +588,98 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
     });
   };
 
+  const handleCreateBooth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeEvent || !newBoothName.trim()) return;
+    
+    const newBth: Booth = {
+      id: `bth-${Date.now()}`,
+      eventId: activeEvent.id,
+      name: newBoothName,
+      type: newBoothType,
+      category: "Exhibition",
+      price: newBoothPrice,
+      status: "AVAILABLE"
+    };
+
+    setBooths(prev => [...prev, newBth]);
+    setNewBoothName("");
+    alert(`Booth ${newBoothName} created successfully!`);
+  };
+
+  const handleAssignBoothExhibitor = (boothId: string, exhibitorId: string) => {
+    if (!activeEvent) return;
+    const exhibitor = (activeEvent.exhibitors || []).find(ex => ex.id === exhibitorId);
+    if (!exhibitor) return;
+
+    const isBoothOccupied = booths.some(b => b.id === boothId && b.status === "SOLD");
+    if (isBoothOccupied) {
+      alert("This booth is already leased to another exhibitor.");
+      return;
+    }
+
+    // Assign booth
+    setBooths(prev => prev.map(b => {
+      if (b.id === boothId) {
+        return {
+          ...b,
+          status: "SOLD" as const,
+          vendorBusinessName: exhibitor.companyName
+        };
+      }
+      return b;
+    }));
+
+    // Update exhibitor's assigned booth field
+    const currentExhibitors = activeEvent.exhibitors || [];
+    updateActiveEvent({
+      exhibitors: currentExhibitors.map(ex => {
+        if (ex.id === exhibitorId) {
+          return {
+            ...ex,
+            boothAssigned: booths.find(b => b.id === boothId)?.name || "Assigned Booth",
+            status: "Approved" as const
+          };
+        }
+        return ex;
+      })
+    });
+
+    addSagaLog("Booth-Leasing-Service", `Booth assigned: Booth ID ${boothId} leased to ${exhibitor.companyName}`, "success");
+    alert(`Successfully assigned booth to ${exhibitor.companyName}`);
+  };
+
+  const handleReleaseBooth = (boothId: string) => {
+    if (!activeEvent) return;
+    const boothToRelease = booths.find(b => b.id === boothId);
+    if (!boothToRelease) return;
+
+    setBooths(prev => prev.map(b => {
+      if (b.id === boothId) {
+        const { vendorBusinessName, ...rest } = b;
+        return {
+          ...rest,
+          status: "AVAILABLE" as const
+        };
+      }
+      return b;
+    }));
+
+    const currentExhibitors = activeEvent.exhibitors || [];
+    updateActiveEvent({
+      exhibitors: currentExhibitors.map(ex => {
+        if (ex.boothAssigned === boothToRelease.name) {
+          const { boothAssigned, ...rest } = ex;
+          return rest;
+        }
+        return ex;
+      })
+    });
+
+    addSagaLog("Booth-Leasing-Service", `Booth released: Booth ${boothToRelease.name} is now AVAILABLE.`, "info");
+    alert(`Released Booth ${boothToRelease.name}.`);
+  };
+
   // Vendor marketplace actions
   const handleAddVendorSim = (e: React.FormEvent) => {
     e.preventDefault();
@@ -574,7 +689,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
       name: vendorNameSim,
       category: vendorCatSim,
       taxId: vendorTaxId || "TAX-1234",
-      license: "BUS-LIC-9090",
+      license: vendorLic || "BUS-LIC-9090",
       space: vendorSpace,
       status: "Pending" as const
     };
@@ -582,6 +697,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
     updateActiveEvent({ vendors: [...current, newVnd] });
     setVendorNameSim("");
     setVendorTaxId("");
+    setVendorLic("");
     alert("Vendor registered.");
   };
 
@@ -1413,6 +1529,83 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
               {/* TAB 1: OVERVIEW */}
               {commandActiveTab === "overview" && (
                 <div className="space-y-4">
+                  {/* KPI Metrics Dashboard Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pb-4 border-b border-[var(--glass-border)]">
+                    <div className="glass p-3 rounded-xl flex flex-col justify-between">
+                      <span className="text-[9px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Total Attendees</span>
+                      <span className="text-base font-extrabold text-sky-400 mt-1 font-mono">{(activeEvent.registrations || []).length}</span>
+                    </div>
+                    <div className="glass p-3 rounded-xl flex flex-col justify-between">
+                      <span className="text-[9px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Total Exhibitors</span>
+                      <span className="text-base font-extrabold text-indigo-400 mt-1 font-mono">{(activeEvent.exhibitors || []).length}</span>
+                    </div>
+                    <div className="glass p-3 rounded-xl flex flex-col justify-between">
+                      <span className="text-[9px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Booth Occupancy</span>
+                      <span className="text-base font-extrabold text-purple-400 mt-1 font-mono">
+                        {(() => {
+                          const evBooths = booths.filter(b => b.eventId === activeEvent.id);
+                          const occupied = evBooths.filter(b => b.status === "SOLD").length;
+                          return evBooths.length > 0 ? `${((occupied / evBooths.length) * 100).toFixed(0)}%` : "0%";
+                        })()}
+                      </span>
+                    </div>
+                    <div className="glass p-3 rounded-xl flex flex-col justify-between">
+                      <span className="text-[9px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Available Booths</span>
+                      <span className="text-base font-extrabold text-emerald-400 mt-1 font-mono">
+                        {booths.filter(b => b.eventId === activeEvent.id && b.status === "AVAILABLE").length}
+                      </span>
+                    </div>
+                    <div className="glass p-3 rounded-xl flex flex-col justify-between">
+                      <span className="text-[9px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Total Vendors</span>
+                      <span className="text-base font-extrabold text-amber-400 mt-1 font-mono">{(activeEvent.vendors || []).length}</span>
+                    </div>
+                    <div className="glass p-3 rounded-xl flex flex-col justify-between">
+                      <span className="text-[9px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Food Trucks</span>
+                      <span className="text-base font-extrabold text-rose-400 mt-1 font-mono">{(activeEvent.foodTrucks || []).length}</span>
+                    </div>
+                    <div className="glass p-3 rounded-xl flex flex-col justify-between">
+                      <span className="text-[9px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Sponsor Revenue</span>
+                      <span className="text-base font-extrabold text-amber-400 mt-1 font-mono">
+                        ${(() => {
+                          const evSponsors = sponsorApplications.filter(a => a.eventId === activeEvent.id && a.status === "APPROVED");
+                          return evSponsors.reduce((sum, s) => sum + s.packagePrice, 0);
+                        })()}
+                      </span>
+                    </div>
+                    <div className="glass p-3 rounded-xl flex flex-col justify-between">
+                      <span className="text-[9px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Booth Revenue</span>
+                      <span className="text-base font-extrabold text-indigo-400 mt-1 font-mono">
+                        ${(() => {
+                          const evBooths = boothApplications.filter(a => a.eventId === activeEvent.id && a.status === "APPROVED");
+                          return evBooths.reduce((sum, b) => sum + b.price, 0);
+                        })()}
+                      </span>
+                    </div>
+                    <div className="glass p-3 rounded-xl flex flex-col justify-between">
+                      <span className="text-[9px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Ticket Revenue</span>
+                      <span className="text-base font-extrabold text-emerald-400 mt-1 font-mono">${activeEvent.ticketsSold * activeEvent.price}</span>
+                    </div>
+                    <div className="glass p-3 rounded-xl flex flex-col justify-between">
+                      <span className="text-[9px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Pending Approvals</span>
+                      <span className="text-base font-extrabold text-pink-400 mt-1 font-mono">
+                        {sponsorApplications.filter(a => a.eventId === activeEvent.id && a.status === "PENDING").length +
+                         boothApplications.filter(a => a.eventId === activeEvent.id && a.status === "PENDING").length +
+                         (activeEvent.exhibitors || []).filter(e => e.status === "Pending" || e.status === "Under Review" || e.status === "Submitted").length +
+                         (activeEvent.foodTrucks || []).filter(f => f.status === "Pending").length}
+                      </span>
+                    </div>
+                    <div className="glass p-3 rounded-xl flex flex-col justify-between col-span-2">
+                      <span className="text-[9px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Check-In Progress</span>
+                      <span className="text-base font-extrabold text-sky-400 mt-1 font-mono">
+                        {(() => {
+                          const list = activeEvent.registrations || [];
+                          const checkedIn = list.filter(r => r.checkedIn).length;
+                          return `${checkedIn} checked in / ${list.length} registered`;
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Event Title *</label>
@@ -1924,25 +2117,43 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
                       ) : (
                         <div className="space-y-2">
                           {activeEvent.exhibitors.map(ex => (
-                            <div key={ex.id} className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl p-3.5 flex justify-between items-center text-xs">
-                              <div>
-                                <span className="font-bold text-[var(--text-primary)] block text-sm">{ex.companyName}</span>
-                                <span className="text-[10px] text-[var(--text-secondary)] block">Contact: {ex.contactName} · {ex.email}</span>
-                                {ex.boothAssigned && <span className="text-[10px] text-indigo-400 font-mono font-bold block">Assigned: {ex.boothAssigned}</span>}
+                            <div key={ex.id} className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl p-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
+                              <div className="flex gap-3 items-start">
+                                {ex.logoUrl ? (
+                                  <img src={ex.logoUrl} alt="Logo" className="w-10 h-10 rounded-lg object-cover border border-[var(--glass-border)]" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-lg bg-[var(--glass-bg)] border border-[var(--glass-border)] flex items-center justify-center font-bold text-sky-400">EX</div>
+                                )}
+                                <div>
+                                  <span className="font-bold text-[var(--text-primary)] block text-sm">{ex.companyName}</span>
+                                  <span className="text-[10px] text-[var(--text-secondary)] block">Contact: {ex.contactName} · {ex.email} · {ex.phone}</span>
+                                  <span className="text-[10px] text-[var(--text-secondary)] block">Industry: <strong>{ex.industry}</strong> · Website: <a href={ex.website.startsWith("http") ? ex.website : `https://${ex.website}`} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">{ex.website}</a></span>
+                                  <span className="text-[10px] text-[var(--text-secondary)] block mt-0.5 italic">Services: {ex.productsServices}</span>
+                                  {ex.boothAssigned && (
+                                    <span className="text-[10px] text-indigo-400 font-mono font-bold block mt-1">Assigned Booth: {ex.boothAssigned}</span>
+                                  )}
+                                </div>
                               </div>
                               
-                              <div className="flex gap-2">
-                                {ex.status === "Pending" ? (
-                                  <>
-                                    <button onClick={() => {
-                                      const current = activeEvent.exhibitors || [];
-                                      updateActiveEvent({ exhibitors: current.map(e => e.id === ex.id ? { ...e, status: "Rejected" } : e) });
-                                    }} className="text-rose-400 hover:text-rose-300 font-semibold text-[10px]">Reject</button>
-                                    <button onClick={() => handleApproveExhibitor(ex.id)} className="bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 text-emerald-400 py-1 px-2.5 rounded font-bold transition">Approve</button>
-                                  </>
-                                ) : (
-                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${ex.status === "Approved" ? "text-emerald-400" : "text-rose-400"}`}>{ex.status}</span>
-                                )}
+                              <div className="flex items-center gap-2">
+                                <label className="text-[9px] text-[var(--text-secondary)] uppercase font-bold">Status:</label>
+                                <select
+                                  value={ex.status || "Submitted"}
+                                  onChange={(e) => {
+                                    const newStatus = e.target.value as any;
+                                    const current = activeEvent.exhibitors || [];
+                                    updateActiveEvent({ exhibitors: current.map(item => item.id === ex.id ? { ...item, status: newStatus } : item) });
+                                    addSagaLog("Exhibitor-Service", `Exhibitor ${ex.companyName} status transitioned to ${newStatus}.`, "info");
+                                  }}
+                                  className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded text-[10px] py-1 px-1.5 text-[var(--text-primary)] font-bold cursor-pointer focus:outline-none"
+                                >
+                                  <option value="Draft">Draft</option>
+                                  <option value="Submitted">Submitted</option>
+                                  <option value="Under Review">Under Review</option>
+                                  <option value="Approved">Approved</option>
+                                  <option value="Rejected">Rejected</option>
+                                  <option value="Checked In">Checked In</option>
+                                </select>
                               </div>
                             </div>
                           ))}
@@ -1959,64 +2170,211 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
                     
-                    {/* Booth specs layout list */}
-                    <div className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl p-4 space-y-3 md:col-span-1">
-                      <span className="font-bold text-[10px] uppercase text-[var(--text-secondary)] block">Exhibitor Booths Config</span>
+                    {/* Booth Specs & Creator Panel */}
+                    <div className="space-y-4 md:col-span-1">
                       
-                      <div className="p-3 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl space-y-2">
-                        <div className="flex justify-between items-center text-[10px]">
-                          <span>Premium Occupancy Rate</span>
-                          <span className="font-mono text-indigo-400 font-bold">
-                            {(() => {
-                              const evBooths = booths.filter(b => b.eventId === activeEvent.id);
-                              const total = evBooths.length;
-                              const occupied = evBooths.filter(b => b.status === "SOLD").length;
-                              return total > 0 ? `${((occupied / total) * 100).toFixed(1)}%` : "0.0%";
-                            })()}
-                          </span>
+                      {/* Stats card */}
+                      <div className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl p-4 space-y-3">
+                        <span className="font-bold text-[10px] uppercase text-[var(--text-secondary)] block">Exhibitor Booths Config</span>
+                        
+                        <div className="p-3 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl space-y-2">
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span>Leased Occupancy Rate</span>
+                            <span className="font-mono text-indigo-400 font-bold">
+                              {(() => {
+                                const evBooths = booths.filter(b => b.eventId === activeEvent.id);
+                                const total = evBooths.length;
+                                const occupied = evBooths.filter(b => b.status === "SOLD").length;
+                                return total > 0 ? `${((occupied / total) * 100).toFixed(1)}%` : "0.0%";
+                              })()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span>Total Configured Slots</span>
+                            <span className="font-mono text-sky-400 font-bold">
+                              {booths.filter(b => b.eventId === activeEvent.id).length}
+                            </span>
+                          </div>
                         </div>
+
+                        <div className="text-[11px] text-[var(--text-secondary)] space-y-1 font-mono">
+                          <div>Strategy: <strong>{activeEvent.boothAssignmentStrategy || "Organizer Assigned"}</strong></div>
+                          <div>Map Layout: <strong>{activeEvent.boothMapUrl ? "Custom SVG" : "Standard Grid"}</strong></div>
+                        </div>
+
+                        {booths.filter(b => b.eventId === activeEvent.id).length === 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const list = Array.from({ length: 15 }).map((_, idx) => {
+                                const isPremium = idx < 5;
+                                const type = isPremium ? "Premium" : "Standard";
+                                return {
+                                  id: `bth-init-${idx}-${Date.now()}`,
+                                  eventId: activeEvent.id,
+                                  name: `${type} Booth #${101 + idx}`,
+                                  type: type as any,
+                                  category: "Exhibition",
+                                  price: isPremium ? 800 : 500,
+                                  status: "AVAILABLE" as const
+                                };
+                              });
+                              setBooths(prev => [...prev, ...list]);
+                              addSagaLog("Booth-Leasing-Service", `Initialized default booth layout: 15 slots configured.`, "info");
+                            }}
+                            className="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-2 rounded-xl text-xs transition cursor-pointer"
+                          >
+                            Initialize 15 Default Slots
+                          </button>
+                        )}
                       </div>
 
-                      <div className="text-[11px] text-[var(--text-secondary)] space-y-1 font-mono">
-                        <div>Exhibition Strategy: <strong>Organizer Assigned</strong></div>
-                        <div>Standard Slot Price: <strong>$500</strong></div>
-                        <div>Premium Slot Price: <strong>$800</strong></div>
+                      {/* Create booth form */}
+                      <div className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl p-4 space-y-3">
+                        <span className="font-bold text-[10px] uppercase text-[var(--text-secondary)] block">Create New Booth Slot</span>
+                        <form onSubmit={handleCreateBooth} className="space-y-2">
+                          <div>
+                            <input
+                              type="text"
+                              required
+                              value={newBoothName}
+                              onChange={(e) => setNewBoothName(e.target.value)}
+                              placeholder="e.g. Premium Corner #105"
+                              className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <select
+                                value={newBoothType}
+                                onChange={(e) => setNewBoothType(e.target.value as any)}
+                                className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full cursor-pointer"
+                              >
+                                <option value="Standard">Standard</option>
+                                <option value="Premium">Premium</option>
+                                <option value="Corner">Corner</option>
+                                <option value="Island">Island</option>
+                                <option value="Outdoor">Outdoor</option>
+                              </select>
+                            </div>
+                            <div>
+                              <input
+                                type="number"
+                                required
+                                value={newBoothPrice}
+                                onChange={(e) => setNewBoothPrice(parseInt(e.target.value) || 0)}
+                                placeholder="Price"
+                                className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="submit"
+                            className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-1.5 rounded text-xs transition cursor-pointer"
+                          >
+                            Add Booth to Layout
+                          </button>
+                        </form>
                       </div>
+
+                      {/* Assignment Override Widget */}
+                      {selectedBoothId && (() => {
+                        const booth = booths.find(b => b.id === selectedBoothId);
+                        if (!booth) return null;
+                        const approvedExhibitors = (activeEvent.exhibitors || []).filter(ex => ex.status === "Approved");
+                        return (
+                          <div className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl p-4 space-y-3 font-sans text-xs">
+                            <span className="font-bold text-[10px] uppercase text-[var(--text-secondary)] block">Booth Assignment Console</span>
+                            <div className="space-y-1">
+                              <span className="font-bold text-[var(--text-primary)]">{booth.name}</span>
+                              <span className="text-[10px] text-[var(--text-secondary)] block">Type: {booth.type} · Price: ${booth.price}</span>
+                            </div>
+                            {booth.status === "SOLD" ? (
+                              <div className="space-y-2">
+                                <span className="text-[10px] text-rose-400 font-semibold block">Status: Leased / Occupied ({booth.vendorBusinessName})</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleReleaseBooth(booth.id)}
+                                  className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 py-1.5 rounded text-xs font-bold transition cursor-pointer"
+                                >
+                                  Release / Override Assignment
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <span className="text-[10px] text-emerald-400 font-semibold block">Status: Available</span>
+                                {approvedExhibitors.length === 0 ? (
+                                  <span className="text-[10px] text-[var(--text-secondary)] block italic">No approved exhibitors available for lease assignment. Go to Exhibitors tab to approve.</span>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <select
+                                      id="exhibitor-select"
+                                      defaultValue=""
+                                      onChange={(e) => {
+                                        if (e.target.value) {
+                                          handleAssignBoothExhibitor(booth.id, e.target.value);
+                                        }
+                                      }}
+                                      className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full cursor-pointer"
+                                    >
+                                      <option value="" disabled>Select Approved Exhibitor...</option>
+                                      {approvedExhibitors.map(ex => (
+                                        <option key={ex.id} value={ex.id}>{ex.companyName}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                     </div>
 
                     {/* Booth map grid simulation */}
                     <div className="md:col-span-2 space-y-3 font-sans">
                       <span className="font-bold text-[10px] uppercase text-[var(--text-secondary)] block">Interactive Exhibition Floor Map</span>
                       
-                      <div className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl p-4 flex flex-col items-center justify-center">
-                        <div className="grid grid-cols-5 gap-3">
-                          {Array.from({ length: 15 }).map((_, idx) => {
-                            const bthNumber = 101 + idx;
-                            const isSold = idx % 3 === 0;
-                            const isPremium = idx < 5;
+                      <div className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl p-5 flex flex-col items-center justify-center relative min-h-[300px]">
+                        
+                        {/* Simulated map graphic header */}
+                        {activeEvent.boothMapUrl && (
+                          <div className="absolute top-2 right-2 text-[8px] font-mono text-[var(--text-secondary)] uppercase">Custom Map active</div>
+                        )}
+
+                        <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 w-full max-w-md">
+                          {booths.filter(b => b.eventId === activeEvent.id).map((bth) => {
+                            const isSold = bth.status === "SOLD";
+                            const isSelected = bth.id === selectedBoothId;
                             return (
                               <button
-                                key={idx}
+                                key={bth.id}
                                 type="button"
-                                onClick={() => {
-                                  alert(`Booth #${bthNumber} (${isPremium ? "Premium" : "Standard"}) status: ${isSold ? "SOLD" : "AVAILABLE"}`);
-                                }}
-                                className={`w-12 h-12 rounded-lg border flex flex-col items-center justify-center text-[10px] font-bold transition ${
+                                onClick={() => setSelectedBoothId(bth.id)}
+                                className={`h-14 rounded-xl border flex flex-col items-center justify-center text-[10px] font-bold transition-all duration-200 ${
                                   isSold 
-                                    ? "bg-rose-500/10 border-rose-500/35 text-rose-400" 
+                                    ? "bg-rose-500/10 border-rose-500/35 text-rose-400 hover:bg-rose-500/20" 
                                     : "bg-emerald-500/10 border-emerald-500/35 text-emerald-400 hover:bg-emerald-500/20"
-                                }`}
+                                } ${isSelected ? "ring-2 ring-sky-500 scale-105 shadow-md shadow-sky-500/20" : ""}`}
                               >
-                                <span>#{bthNumber}</span>
-                                <span className="text-[8px] font-mono opacity-75">{isPremium ? "PREM" : "STD"}</span>
+                                <span className="truncate max-w-full px-1">{bth.name.replace("Booth", "").replace("Catering Spot", "").trim()}</span>
+                                <span className="text-[8px] font-mono opacity-75 font-semibold text-indigo-400">${bth.price}</span>
+                                <span className="text-[7px] font-mono uppercase tracking-wider opacity-60 mt-0.5">{bth.type}</span>
                               </button>
                             );
                           })}
                         </div>
-                        <div className="flex gap-4 mt-4 text-[10px] text-[var(--text-secondary)]">
-                          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-emerald-500/25 border border-emerald-500/40"></span> Available</span>
-                          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-rose-500/25 border border-rose-500/40"></span> Leased / Occupied</span>
-                        </div>
+
+                        {booths.filter(b => b.eventId === activeEvent.id).length > 0 ? (
+                          <div className="flex gap-4 mt-6 text-[10px] text-[var(--text-secondary)]">
+                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500/40"></span> Available</span>
+                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-rose-500/20 border border-rose-500/40"></span> Leased / Sold</span>
+                            <span className="text-[10px] text-[var(--text-secondary)] font-semibold italic">Click any slot to manage assignment</span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-[var(--text-secondary)] italic">No booth slots defined. Initialize above or create new slots.</p>
+                        )}
                       </div>
                     </div>
 
@@ -2033,11 +2391,22 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
                     <div className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-2xl p-4 space-y-3 md:col-span-1">
                       <span className="font-bold text-[10px] uppercase text-[var(--text-secondary)] block">Add Marketplace Vendor</span>
                       <form onSubmit={handleAddVendorSim} className="space-y-2">
-                        <input type="text" required value={vendorNameSim} onChange={(e) => setVendorNameSim(e.target.value)} placeholder="Vendor Business Name" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full font-sans" />
-                        <input type="text" value={vendorTaxId} onChange={(e) => setVendorTaxId(e.target.value)} placeholder="Sales Tax ID" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full font-mono" />
-                        <input type="text" value={vendorSpace} onChange={(e) => setVendorSpace(e.target.value)} placeholder="Assigned Space (e.g. Space A)" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full" />
+                        <input type="text" required value={vendorNameSim} onChange={(e) => setVendorNameSim(e.target.value)} placeholder="Vendor Business Name" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full focus:outline-none" />
+                        <input type="text" value={vendorTaxId} onChange={(e) => setVendorTaxId(e.target.value)} placeholder="Sales Tax ID" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full font-mono focus:outline-none" />
+                        <input type="text" value={vendorLic} onChange={(e) => setVendorLic(e.target.value)} placeholder="Business License #" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full font-mono focus:outline-none" />
+                        <input type="text" value={vendorSpace} onChange={(e) => setVendorSpace(e.target.value)} placeholder="Assigned Space (e.g. Space A)" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full focus:outline-none" />
                         
-                        <button type="submit" className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-1.5 rounded text-xs cursor-pointer">
+                        <div>
+                          <select value={vendorCatSim} onChange={(e) => setVendorCatSim(e.target.value)} className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full cursor-pointer">
+                            <option value="Promotional">Promotional Category</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Apparel & Swag">Apparel & Swag</option>
+                            <option value="Crafts & Art">Crafts & Art</option>
+                            <option value="Other">Other Merchandise</option>
+                          </select>
+                        </div>
+
+                        <button type="submit" className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-1.5 rounded text-xs transition cursor-pointer">
                           Add Vendor
                         </button>
                       </form>
@@ -2052,21 +2421,58 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
                       ) : (
                         <div className="space-y-2">
                           {activeEvent.vendors.map(v => (
-                            <div key={v.id} className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl p-3 flex justify-between items-center text-xs">
-                              <div>
-                                <span className="font-bold text-[var(--text-primary)] block text-sm">{v.name}</span>
-                                <span className="text-[10px] text-[var(--text-secondary)] block">Tax ID: {v.taxId} · Assigned: {v.space}</span>
+                            <div key={v.id} className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl p-4 flex flex-col gap-3 text-xs">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <span className="font-bold text-[var(--text-primary)] block text-sm">{v.name}</span>
+                                  <span className="text-[10px] text-[var(--text-secondary)] block">Category: {v.category} · Assigned: <strong className="text-indigo-400">{v.space}</strong></span>
+                                  <span className="text-[10px] text-[var(--text-secondary)] block mt-0.5">License: <strong className="font-mono text-slate-400">{v.license || "N/A"}</strong> · Sales Tax ID: <strong className="font-mono text-slate-400">{v.taxId || "N/A"}</strong></span>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={v.status || "Pending"}
+                                    onChange={(e) => {
+                                      const newStatus = e.target.value as any;
+                                      const current = activeEvent.vendors || [];
+                                      updateActiveEvent({ vendors: current.map(item => item.id === v.id ? { ...item, status: newStatus } : item) });
+                                      addSagaLog("Vendor-Service", `Vendor ${v.name} status transitioned to ${newStatus}.`, "info");
+                                    }}
+                                    className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded text-[10px] py-1 px-1.5 text-[var(--text-primary)] font-bold cursor-pointer focus:outline-none"
+                                  >
+                                    <option value="Pending">Pending</option>
+                                    <option value="Approved">Approved</option>
+                                    <option value="Rejected">Rejected</option>
+                                  </select>
+                                  
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const current = activeEvent.vendors || [];
+                                      updateActiveEvent({ vendors: current.filter(item => item.id !== v.id) });
+                                    }}
+                                    className="text-rose-400 hover:text-rose-300 font-bold"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const current = activeEvent.vendors || [];
-                                  updateActiveEvent({ vendors: current.filter(item => item.id !== v.id) });
-                                }}
-                                className="text-rose-400 hover:text-rose-300 font-bold"
-                              >
-                                Remove
-                              </button>
+
+                              {/* Space Assignment Input for easy override */}
+                              <div className="flex gap-2 items-center pt-2 border-t border-[var(--glass-border)]">
+                                <label className="text-[9px] text-[var(--text-secondary)] uppercase font-bold">Space Override:</label>
+                                <input
+                                  type="text"
+                                  value={v.space}
+                                  onChange={(e) => {
+                                    const current = activeEvent.vendors || [];
+                                    updateActiveEvent({ vendors: current.map(item => item.id === v.id ? { ...item, space: e.target.value } : item) });
+                                  }}
+                                  placeholder="e.g. Space C"
+                                  className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] w-32 focus:outline-none font-mono"
+                                />
+                                <span className="text-[9px] text-[var(--text-secondary)] italic ml-auto">License Compliance Check Complete</span>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -2086,9 +2492,31 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
                     <div className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-2xl p-4 space-y-3 md:col-span-1">
                       <span className="font-bold text-[10px] uppercase text-[var(--text-secondary)] block">Simulate Food Truck application</span>
                       <form onSubmit={handleAddFoodTruckSim} className="space-y-2">
-                        <input type="text" required value={truckBusinessName} onChange={(e) => setTruckBusinessName(e.target.value)} placeholder="Food Truck / Business Name" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full" />
-                        <input type="text" value={truckCuisine} onChange={(e) => setTruckCuisine(e.target.value)} placeholder="Cuisine Category (e.g. Mexican)" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full" />
-                        <input type="text" value={truckPermit} onChange={(e) => setTruckPermit(e.target.value)} placeholder="Food Safety Permit ID" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full font-mono" />
+                        <input type="text" required value={truckBusinessName} onChange={(e) => setTruckBusinessName(e.target.value)} placeholder="Food Truck / Business Name" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full focus:outline-none" />
+                        <input type="text" value={truckCuisine} onChange={(e) => setTruckCuisine(e.target.value)} placeholder="Cuisine Category (e.g. Mexican)" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full focus:outline-none" />
+                        <input type="text" value={truckPermit} onChange={(e) => setTruckPermit(e.target.value)} placeholder="Food Safety Permit ID" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full font-mono focus:outline-none" />
+                        <input type="text" value={truckInsurance} onChange={(e) => setTruckInsurance(e.target.value)} placeholder="Insurance Certificate ID" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full font-mono focus:outline-none" />
+                        <input type="text" value={truckMenu} onChange={(e) => setTruckMenu(e.target.value)} placeholder="Menu (e.g. Tacos, Burritos)" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full focus:outline-none" />
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="text" value={truckDims} onChange={(e) => setTruckDims(e.target.value)} placeholder="Dims (e.g. 20x8 ft)" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full focus:outline-none" />
+                          <input type="text" value={truckArrival} onChange={(e) => setTruckArrival(e.target.value)} placeholder="Arrival (e.g. 08:00 AM)" className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full focus:outline-none" />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <select value={truckPower} onChange={(e) => setTruckPower(e.target.value)} className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full cursor-pointer">
+                            <option value="50 Amp">50 Amp Power</option>
+                            <option value="30 Amp">30 Amp Power</option>
+                            <option value="110 Volt">110V standard</option>
+                            <option value="None">No Power</option>
+                          </select>
+                          <select value={truckSpot} onChange={(e) => setTruckSpot(e.target.value)} className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1.5 text-xs text-[var(--text-primary)] w-full cursor-pointer">
+                            <option value="Spot A">Spot A</option>
+                            <option value="Spot B">Spot B</option>
+                            <option value="Spot C">Spot C</option>
+                            <option value="Spot D">Spot D</option>
+                          </select>
+                        </div>
                         
                         <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-[var(--text-primary)] pt-1">
                           <input type="checkbox" checked={truckWater} onChange={() => setTruckWater(!truckWater)} className="rounded border-slate-700 bg-transparent text-indigo-500" />
@@ -2110,29 +2538,120 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
                       ) : (
                         <div className="space-y-2">
                           {activeEvent.foodTrucks.map(ft => (
-                            <div key={ft.id} className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl p-3.5 flex justify-between items-center text-xs">
-                              <div>
-                                <span className="font-bold text-[var(--text-primary)] block text-sm">{ft.name}</span>
-                                <span className="text-[10px] text-[var(--text-secondary)] block">Cuisine: {ft.cuisine} · Parking: {ft.spot} · Utility: {ft.powerRequired}</span>
-                                {ft.waterRequired && <span className="text-[9px] text-sky-400 block font-bold font-mono">WATER CONNECTED</span>}
+                            <div key={ft.id} className="bg-[var(--input-bg)] border border-[var(--glass-border)] rounded-xl p-4 flex flex-col gap-3 text-xs">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <span className="font-bold text-[var(--text-primary)] block text-sm">{ft.name}</span>
+                                  <span className="text-[10px] text-[var(--text-secondary)] block">Cuisine: {ft.cuisine} · Menu: {ft.menu}</span>
+                                  <span className="text-[10px] text-[var(--text-secondary)] block">Dimensions: {ft.dimensions} · Permit: <strong className="font-mono">{ft.permitNumber}</strong> · Insurance: <strong className="font-mono">{ft.insuranceCertificate || "N/A"}</strong></span>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${ft.status === "Approved" ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" : ft.status === "Pending" ? "text-amber-400 bg-amber-500/10 border border-amber-500/20" : "text-rose-400 bg-rose-500/10 border border-rose-500/20"}`}>
+                                    {ft.status}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const current = activeEvent.foodTrucks || [];
+                                      updateActiveEvent({ foodTrucks: current.filter(item => item.id !== ft.id) });
+                                    }}
+                                    className="text-rose-400 hover:text-rose-300 font-bold text-sm"
+                                  >
+                                    &times;
+                                  </button>
+                                </div>
                               </div>
-                              
-                              <div className="flex gap-2.5">
-                                {ft.status === "Pending" ? (
-                                  <button onClick={() => handleApproveFoodTruck(ft.id)} className="bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 text-emerald-400 py-1 px-2.5 rounded font-bold transition">Approve</button>
-                                ) : (
-                                  <span className="text-emerald-400 font-bold uppercase text-[10px]">Active Spot</span>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => {
+
+                              {/* Utilities, Spots & Scheduling Overrides */}
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-[var(--glass-border)] font-mono text-[10px]">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] text-[var(--text-secondary)] uppercase font-bold block font-sans">Spot</label>
+                                  <select
+                                    value={ft.spot}
+                                    onChange={(e) => {
+                                      const current = activeEvent.foodTrucks || [];
+                                      updateActiveEvent({ foodTrucks: current.map(item => item.id === ft.id ? { ...item, spot: e.target.value } : item) });
+                                    }}
+                                    className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1 text-[var(--text-primary)] w-full cursor-pointer font-sans text-xs"
+                                  >
+                                    <option value="Spot A">Spot A</option>
+                                    <option value="Spot B">Spot B</option>
+                                    <option value="Spot C">Spot C</option>
+                                    <option value="Spot D">Spot D</option>
+                                    <option value="Spot E">Spot E</option>
+                                  </select>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[9px] text-[var(--text-secondary)] uppercase font-bold block font-sans">Power</label>
+                                  <select
+                                    value={ft.powerRequired}
+                                    onChange={(e) => {
+                                      const current = activeEvent.foodTrucks || [];
+                                      updateActiveEvent({ foodTrucks: current.map(item => item.id === ft.id ? { ...item, powerRequired: e.target.value } : item) });
+                                    }}
+                                    className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1 text-[var(--text-primary)] w-full cursor-pointer font-sans text-xs"
+                                  >
+                                    <option value="50 Amp">50 Amp</option>
+                                    <option value="30 Amp">30 Amp</option>
+                                    <option value="110 Volt">110V Std</option>
+                                    <option value="None">None Required</option>
+                                  </select>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[9px] text-[var(--text-secondary)] uppercase font-bold block font-sans">Water Hookup</label>
+                                  <select
+                                    value={ft.waterRequired ? "Yes" : "No"}
+                                    onChange={(e) => {
+                                      const current = activeEvent.foodTrucks || [];
+                                      updateActiveEvent({ foodTrucks: current.map(item => item.id === ft.id ? { ...item, waterRequired: e.target.value === "Yes" } : item) });
+                                    }}
+                                    className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1 text-[var(--text-primary)] w-full cursor-pointer font-sans text-xs"
+                                  >
+                                    <option value="Yes">Yes (Connected)</option>
+                                    <option value="No">No Hookup</option>
+                                  </select>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[9px] text-[var(--text-secondary)] uppercase font-bold block font-sans">Arrival Window</label>
+                                  <select
+                                    value={ft.arrivalWindow || "08:00 AM"}
+                                    onChange={(e) => {
+                                      const current = activeEvent.foodTrucks || [];
+                                      updateActiveEvent({ foodTrucks: current.map(item => item.id === ft.id ? { ...item, arrivalWindow: e.target.value } : item) });
+                                    }}
+                                    className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded p-1 text-[var(--text-primary)] w-full cursor-pointer font-sans text-xs"
+                                  >
+                                    <option value="07:00 AM">07:00 AM</option>
+                                    <option value="08:00 AM">08:00 AM</option>
+                                    <option value="09:00 AM">09:00 AM</option>
+                                    <option value="10:00 AM">10:00 AM</option>
+                                  </select>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2 justify-end pt-1">
+                                {ft.status !== "Approved" && (
+                                  <button onClick={() => {
                                     const current = activeEvent.foodTrucks || [];
-                                    updateActiveEvent({ foodTrucks: current.filter(item => item.id !== ft.id) });
-                                  }}
-                                  className="text-rose-400 hover:text-rose-300 font-bold"
-                                >
-                                  &times;
-                                </button>
+                                    updateActiveEvent({ foodTrucks: current.map(item => item.id === ft.id ? { ...item, status: "Approved" as const } : item) });
+                                    addSagaLog("FoodTruck-Service", `Food Truck ${ft.name} approved and parking allocated.`, "success");
+                                  }} className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 py-1 px-3 rounded font-bold transition cursor-pointer">
+                                    Approve & Allocate Spot
+                                  </button>
+                                )}
+                                {ft.status !== "Rejected" && (
+                                  <button onClick={() => {
+                                    const current = activeEvent.foodTrucks || [];
+                                    updateActiveEvent({ foodTrucks: current.map(item => item.id === ft.id ? { ...item, status: "Rejected" as const } : item) });
+                                    addSagaLog("FoodTruck-Service", `Food Truck ${ft.name} application rejected.`, "error");
+                                  }} className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 py-1 px-3 rounded font-bold transition cursor-pointer">
+                                    Reject Application
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -2404,6 +2923,48 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
               {/* TAB 13: ANALYTICS */}
               {commandActiveTab === "analytics" && (
                 <div className="space-y-4">
+                  {/* Ecosystem financial & attendance metrics summary */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="glass p-3.5 rounded-xl space-y-1">
+                      <span className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider block">Ticket Sales Revenue</span>
+                      <span className="text-lg font-mono font-bold text-emerald-400 block">${activeEvent.ticketsSold * activeEvent.price}</span>
+                      <span className="text-[9px] text-[var(--text-secondary)] block">{activeEvent.ticketsSold} tickets sold</span>
+                    </div>
+                    <div className="glass p-3.5 rounded-xl space-y-1">
+                      <span className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider block">Booth Rental Revenue</span>
+                      <span className="text-lg font-mono font-bold text-indigo-400 block">
+                        ${(() => {
+                          const evBooths = boothApplications.filter(a => a.eventId === activeEvent.id && a.status === "APPROVED");
+                          return evBooths.reduce((sum, b) => sum + b.price, 0);
+                        })()}
+                      </span>
+                      <span className="text-[9px] text-[var(--text-secondary)] block">
+                        {booths.filter(b => b.eventId === activeEvent.id && b.status === "SOLD").length} booths occupied
+                      </span>
+                    </div>
+                    <div className="glass p-3.5 rounded-xl space-y-1">
+                      <span className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider block">Sponsorship Funds</span>
+                      <span className="text-lg font-mono font-bold text-amber-400 block">
+                        ${(() => {
+                          const evSponsors = sponsorApplications.filter(a => a.eventId === activeEvent.id && a.status === "APPROVED");
+                          return evSponsors.reduce((sum, s) => sum + s.packagePrice, 0);
+                        })()}
+                      </span>
+                      <span className="text-[9px] text-[var(--text-secondary)] block">
+                        {sponsorApplications.filter(a => a.eventId === activeEvent.id && a.status === "APPROVED").length} sponsors active
+                      </span>
+                    </div>
+                    <div className="glass p-3.5 rounded-xl space-y-1">
+                      <span className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider block">Consolidated GMV</span>
+                      <span className="text-lg font-mono font-bold text-sky-400 block">
+                        ${activeEvent.ticketsSold * activeEvent.price + 
+                          boothApplications.filter(a => a.eventId === activeEvent.id && a.status === "APPROVED").reduce((sum, b) => sum + b.price, 0) +
+                          sponsorApplications.filter(a => a.eventId === activeEvent.id && a.status === "APPROVED").reduce((sum, s) => sum + s.packagePrice, 0)}
+                      </span>
+                      <span className="text-[9px] text-[var(--text-secondary)] block">Total business volume</span>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     
                     {/* Performance metrics lists */}
@@ -2446,48 +3007,278 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({
 
               {/* TAB 14: SETTINGS */}
               {commandActiveTab === "settings" && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase font-sans">Max capacity limit</label>
-                      <input
-                        type="number"
-                        value={activeEvent.maxCapacity || 500}
-                        onChange={(e) => updateActiveEvent({ maxCapacity: parseInt(e.target.value) || 0 })}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 w-full text-[var(--text-primary)] focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase font-sans">Waitlist Capacity</label>
-                      <input
-                        type="number"
-                        value={activeEvent.waitlistCapacity || 50}
-                        onChange={(e) => updateActiveEvent({ waitlistCapacity: parseInt(e.target.value) || 0 })}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 w-full text-[var(--text-primary)] focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase font-sans">Registration opens</label>
-                      <input
-                        type="text"
-                        value={activeEvent.registrationOpenDate || ""}
-                        onChange={(e) => updateActiveEvent({ registrationOpenDate: e.target.value })}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 w-full text-[var(--text-primary)] focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase font-sans">Registration Closes</label>
-                      <input
-                        type="text"
-                        value={activeEvent.registrationCloseDate || ""}
-                        onChange={(e) => updateActiveEvent({ registrationCloseDate: e.target.value })}
-                        className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 w-full text-[var(--text-primary)] focus:outline-none"
-                      />
+                <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-1">
+                  
+                  {/* Basic settings */}
+                  <div className="glass p-4 rounded-xl space-y-3">
+                    <span className="font-bold text-xs uppercase tracking-wider text-[var(--text-secondary)] block">Basic Event Controls</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 font-sans text-xs">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Max capacity limit</label>
+                        <input
+                          type="number"
+                          value={activeEvent.maxCapacity || 500}
+                          onChange={(e) => updateActiveEvent({ maxCapacity: parseInt(e.target.value) || 0 })}
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 w-full text-[var(--text-primary)] focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Waitlist Capacity</label>
+                        <input
+                          type="number"
+                          value={activeEvent.waitlistCapacity || 50}
+                          onChange={(e) => updateActiveEvent({ waitlistCapacity: parseInt(e.target.value) || 0 })}
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 w-full text-[var(--text-primary)] focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Registration opens</label>
+                        <input
+                          type="text"
+                          value={activeEvent.registrationOpenDate || ""}
+                          onChange={(e) => updateActiveEvent({ registrationOpenDate: e.target.value })}
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 w-full text-[var(--text-primary)] focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Registration Closes</label>
+                        <input
+                          type="text"
+                          value={activeEvent.registrationCloseDate || ""}
+                          onChange={(e) => updateActiveEvent({ registrationCloseDate: e.target.value })}
+                          className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1.5 px-3 w-full text-[var(--text-primary)] focus:outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
+
+                  {/* Exhibitor & Booth settings */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="glass p-4 rounded-xl space-y-3">
+                      <span className="font-bold text-xs uppercase tracking-wider text-[var(--text-secondary)] block">Exhibitor Registration Settings</span>
+                      <div className="space-y-2 text-xs font-sans">
+                        <label className="flex items-center gap-2 text-[var(--text-primary)] font-semibold cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={activeEvent.exhibitorRegEnabled || false}
+                            onChange={(e) => updateActiveEvent({ exhibitorRegEnabled: e.target.checked })}
+                            className="w-4 h-4 accent-sky-500 rounded"
+                          />
+                          Enable Exhibitor Registration
+                        </label>
+                        <label className="flex items-center gap-2 text-[var(--text-primary)] font-semibold cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={activeEvent.exhibitorApprovalRequired || false}
+                            onChange={(e) => updateActiveEvent({ exhibitorApprovalRequired: e.target.checked })}
+                            className="w-4 h-4 accent-sky-500 rounded"
+                          />
+                          Require Manual Application Review
+                        </label>
+                        <div className="grid grid-cols-2 gap-2 pt-1.5">
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-[var(--text-secondary)] block uppercase font-bold">Start Date</label>
+                            <input
+                              type="text"
+                              value={activeEvent.exhibitorRegStartDate || ""}
+                              onChange={(e) => updateActiveEvent({ exhibitorRegStartDate: e.target.value })}
+                              placeholder="YYYY-MM-DD"
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 w-full text-[var(--text-primary)]"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-[var(--text-secondary)] block uppercase font-bold">End Date</label>
+                            <input
+                              type="text"
+                              value={activeEvent.exhibitorRegEndDate || ""}
+                              onChange={(e) => updateActiveEvent({ exhibitorRegEndDate: e.target.value })}
+                              placeholder="YYYY-MM-DD"
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 w-full text-[var(--text-primary)]"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1 pt-1">
+                          <label className="text-[9px] text-[var(--text-secondary)] block uppercase font-bold">Max Exhibitors limit</label>
+                          <input
+                            type="number"
+                            value={activeEvent.maxExhibitors || 0}
+                            onChange={(e) => updateActiveEvent({ maxExhibitors: parseInt(e.target.value) || 0 })}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 w-full text-[var(--text-primary)]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="glass p-4 rounded-xl space-y-3">
+                      <span className="font-bold text-xs uppercase tracking-wider text-[var(--text-secondary)] block">Booth Assignment Controls</span>
+                      <div className="space-y-2.5 text-xs font-sans">
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-[var(--text-secondary)] block uppercase font-bold">Total Booth Slots Count</label>
+                          <input
+                            type="number"
+                            value={activeEvent.totalBoothCount || 15}
+                            onChange={(e) => updateActiveEvent({ totalBoothCount: parseInt(e.target.value) || 0 })}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 w-full text-[var(--text-primary)]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-[var(--text-secondary)] block uppercase font-bold">Assignment Strategy</label>
+                          <select
+                            value={activeEvent.boothAssignmentStrategy || "Organizer Assigned"}
+                            onChange={(e) => updateActiveEvent({ boothAssignmentStrategy: e.target.value as any })}
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 w-full text-[var(--text-primary)] cursor-pointer"
+                          >
+                            <option value="Self-Select">Self-Select</option>
+                            <option value="Organizer Assigned">Organizer Assigned</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1 pt-1">
+                          <label className="text-[9px] text-[var(--text-secondary)] block uppercase font-bold">Exhibition Layout/Map URL</label>
+                          <input
+                            type="text"
+                            value={activeEvent.boothMapUrl || ""}
+                            onChange={(e) => updateActiveEvent({ boothMapUrl: e.target.value })}
+                            placeholder="URL to SVG or PNG Layout Map"
+                            className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2.5 w-full text-[var(--text-primary)]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Vendor & Food Truck settings */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="glass p-4 rounded-xl space-y-3">
+                      <span className="font-bold text-xs uppercase tracking-wider text-[var(--text-secondary)] block">Vendor & Food Truck Registration</span>
+                      <div className="space-y-2 text-xs font-sans">
+                        <label className="flex items-center gap-2 text-[var(--text-primary)] font-semibold cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={activeEvent.vendorRegEnabled || false}
+                            onChange={(e) => updateActiveEvent({ vendorRegEnabled: e.target.checked })}
+                            className="w-4 h-4 accent-sky-500 rounded"
+                          />
+                          Enable Vendor Signups
+                        </label>
+                        <label className="flex items-center gap-2 text-[var(--text-primary)] font-semibold cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={activeEvent.foodTruckRegEnabled || false}
+                            onChange={(e) => updateActiveEvent({ foodTruckRegEnabled: e.target.checked })}
+                            className="w-4 h-4 accent-sky-500 rounded"
+                          />
+                          Enable Food Truck Registration
+                        </label>
+                        <label className="flex items-center gap-2 text-[var(--text-primary)] font-semibold cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={activeEvent.vendorApprovalWorkflowEnabled || false}
+                            onChange={(e) => updateActiveEvent({ vendorApprovalWorkflowEnabled: e.target.checked })}
+                            className="w-4 h-4 accent-sky-500 rounded"
+                          />
+                          Enable Vendor Approval Workflow
+                        </label>
+
+                        <div className="grid grid-cols-2 gap-2 pt-1.5">
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-[var(--text-secondary)] block uppercase font-bold">Max Vendors</label>
+                            <input
+                              type="number"
+                              value={activeEvent.maxVendors || 0}
+                              onChange={(e) => updateActiveEvent({ maxVendors: parseInt(e.target.value) || 0 })}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 w-full text-[var(--text-primary)]"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-[var(--text-secondary)] block uppercase font-bold">Max Food Trucks</label>
+                            <input
+                              type="number"
+                              value={activeEvent.maxFoodTrucks || 0}
+                              onChange={(e) => updateActiveEvent({ maxFoodTrucks: parseInt(e.target.value) || 0 })}
+                              className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg py-1 px-2 w-full text-[var(--text-primary)]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="glass p-4 rounded-xl space-y-3">
+                      <span className="font-bold text-xs uppercase tracking-wider text-[var(--text-secondary)] block">Compliance & Utilities Settings</span>
+                      <div className="grid grid-cols-2 gap-3 text-xs font-sans">
+                        <div className="space-y-2">
+                          <span className="font-bold text-[9px] text-[var(--text-secondary)] block uppercase">Required Compliance</span>
+                          <label className="flex items-center gap-1.5 text-[var(--text-primary)] font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={activeEvent.foodSafetyDocRequired || false}
+                              onChange={(e) => updateActiveEvent({ foodSafetyDocRequired: e.target.checked })}
+                              className="w-3.5 h-3.5 accent-sky-500 rounded"
+                            />
+                            Food Safety Cert
+                          </label>
+                          <label className="flex items-center gap-1.5 text-[var(--text-primary)] font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={activeEvent.businessLicenseRequired || false}
+                              onChange={(e) => updateActiveEvent({ businessLicenseRequired: e.target.checked })}
+                              className="w-3.5 h-3.5 accent-sky-500 rounded"
+                            />
+                            Business License
+                          </label>
+                          <label className="flex items-center gap-1.5 text-[var(--text-primary)] font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={activeEvent.insuranceRequired || false}
+                              onChange={(e) => updateActiveEvent({ insuranceRequired: e.target.checked })}
+                              className="w-3.5 h-3.5 accent-sky-500 rounded"
+                            />
+                            Liab. Insurance
+                          </label>
+                        </div>
+
+                        <div className="space-y-2">
+                          <span className="font-bold text-[9px] text-[var(--text-secondary)] block uppercase">Utilities Available</span>
+                          <label className="flex items-center gap-1.5 text-[var(--text-primary)] font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={activeEvent.electricityAvailable || false}
+                              onChange={(e) => updateActiveEvent({ electricityAvailable: e.target.checked })}
+                              className="w-3.5 h-3.5 accent-indigo-500 rounded"
+                            />
+                            Electricity Access
+                          </label>
+                          <label className="flex items-center gap-1.5 text-[var(--text-primary)] font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={activeEvent.waterHookupAvailable || false}
+                              onChange={(e) => updateActiveEvent({ waterHookupAvailable: e.target.checked })}
+                              className="w-3.5 h-3.5 accent-indigo-500 rounded"
+                            />
+                            Water Hookups
+                          </label>
+                          <label className="flex items-center gap-1.5 text-[var(--text-primary)] font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={activeEvent.wasteDisposalAvailable || false}
+                              onChange={(e) => updateActiveEvent({ wasteDisposalAvailable: e.target.checked })}
+                              className="w-3.5 h-3.5 accent-indigo-500 rounded"
+                            />
+                            Waste Disposal
+                          </label>
+                          <label className="flex items-center gap-1.5 text-[var(--text-primary)] font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={activeEvent.internetAvailable || false}
+                              onChange={(e) => updateActiveEvent({ internetAvailable: e.target.checked })}
+                              className="w-3.5 h-3.5 accent-indigo-500 rounded"
+                            />
+                            Wi-Fi Internet
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               )}
 

@@ -34,7 +34,35 @@ export const initialEvents: Event[] = [
     sponsorPackages: [
       { id: "sp-gold-evt-1", name: "Gold Corporate Sponsor", price: 5000, benefits: ["Logo on Stage Banner", "Premium Exhibition Booth", "10 VIP Tickets"] },
       { id: "sp-silver-evt-1", name: "Silver Corporate Sponsor", price: 2500, benefits: ["Logo on Catalog Page", "Standard Exhibition Booth", "5 General Tickets"] }
-    ]
+    ],
+    exhibitorRegEnabled: true,
+    exhibitorRegStartDate: "2026-05-01",
+    exhibitorRegEndDate: "2026-06-15",
+    maxExhibitors: 30,
+    exhibitorApprovalRequired: true,
+    exhibitorCategoriesAllowed: ["Technology", "Software", "Hardware", "Consulting"],
+    totalBoothCount: 15,
+    boothTypesAllowed: ["Standard", "Premium", "Corner", "Island", "Outdoor"],
+    boothPricing: [
+      { type: "Standard", price: 500 },
+      { type: "Premium", price: 800 },
+      { type: "Corner", price: 650 },
+      { type: "Island", price: 1200 },
+      { type: "Outdoor", price: 450 }
+    ],
+    boothAssignmentStrategy: "Organizer Assigned",
+    vendorRegEnabled: true,
+    foodTruckRegEnabled: true,
+    maxFoodTrucks: 5,
+    maxVendors: 20,
+    vendorApprovalWorkflowEnabled: true,
+    foodSafetyDocRequired: true,
+    businessLicenseRequired: true,
+    insuranceRequired: true,
+    electricityAvailable: true,
+    waterHookupAvailable: true,
+    wasteDisposalAvailable: true,
+    internetAvailable: true
   },
   {
     id: "evt-2",

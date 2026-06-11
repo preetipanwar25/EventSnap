@@ -142,14 +142,42 @@ export interface Event {
   consentRequired?: boolean;
   npsScore?: number;
   feedbackScore?: number;
+
+  // EXHIBITOR & BOOTH & VENDOR CONFIGURATION
+  exhibitorRegEnabled?: boolean;
+  exhibitorRegStartDate?: string;
+  exhibitorRegEndDate?: string;
+  maxExhibitors?: number;
+  exhibitorApprovalRequired?: boolean;
+  exhibitorCategoriesAllowed?: string[];
+
+  totalBoothCount?: number;
+  boothTypesAllowed?: ("Standard" | "Premium" | "Corner" | "Island" | "Outdoor")[];
+  boothPricing?: { type: "Standard" | "Premium" | "Corner" | "Island" | "Outdoor"; price: number }[];
+  boothAssignmentStrategy?: "Self-Select" | "Organizer Assigned";
+  boothMapUrl?: string;
+
+  vendorRegEnabled?: boolean;
+  foodTruckRegEnabled?: boolean;
+  maxFoodTrucks?: number;
+  maxVendors?: number;
+  vendorApprovalWorkflowEnabled?: boolean;
+  foodSafetyDocRequired?: boolean;
+  businessLicenseRequired?: boolean;
+  insuranceRequired?: boolean;
+
+  electricityAvailable?: boolean;
+  waterHookupAvailable?: boolean;
+  wasteDisposalAvailable?: boolean;
+  internetAvailable?: boolean;
   
   // Child records simulations
   sessions?: { id: string; name: string; startTime: string; endTime: string; speakerId: string; room: string; capacity: number }[];
   speakers?: { id: string; name: string; email: string; phone: string; bio: string; avatarUrl: string }[];
   registrations?: { id: string; name: string; email: string; status: "Approved" | "Rejected" | "Pending" | "Waitlisted"; date: string; checkedIn: boolean }[];
-  foodTrucks?: { id: string; name: string; cuisine: string; permitNumber: string; powerRequired: string; waterRequired: boolean; spot: string; status: "Approved" | "Rejected" | "Pending" }[];
+  foodTrucks?: { id: string; name: string; cuisine: string; permitNumber: string; powerRequired: string; waterRequired: boolean; spot: string; status: "Approved" | "Rejected" | "Pending"; menu?: string; insuranceCertificate?: string; dimensions?: string; arrivalWindow?: string }[];
   vendors?: { id: string; name: string; category: string; taxId: string; license: string; space: string; status: "Approved" | "Rejected" | "Pending" }[];
-  exhibitors?: { id: string; companyName: string; contactName: string; email: string; phone: string; website: string; industry: string; status: "Approved" | "Rejected" | "Pending"; boothRequested?: string; boothAssigned?: string }[];
+  exhibitors?: { id: string; companyName: string; contactName: string; email: string; phone: string; website: string; industry: string; status: "Draft" | "Submitted" | "Under Review" | "Approved" | "Rejected" | "Checked In" | "Pending"; boothRequested?: string; boothAssigned?: string; productsServices?: string; logoUrl?: string }[];
   documents?: { id: string; name: string; type: string; fileUrl: string; expiryDate?: string }[];
 }
 
@@ -307,7 +335,7 @@ export interface Booth {
   id: string;
   eventId: string;
   name: string;
-  type: "STANDARD" | "FOOD_TRUCK";
+  type: "STANDARD" | "FOOD_TRUCK" | "Standard" | "Premium" | "Corner" | "Island" | "Outdoor";
   category: string; // e.g. Tech, Crafts, Mexican, Italian, Desserts, Beverages
   price: number;
   status: "AVAILABLE" | "RESERVED" | "SOLD";
